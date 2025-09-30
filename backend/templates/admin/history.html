@@ -75,7 +75,7 @@
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
-                                            <pre class="bg-light p-3 rounded"><code>{{ log.request_data | tojson(indent=2) }}</code></pre>
+                                            <pre class="bg-light p-3 rounded"><code>{{ pretty_json(log.request_data) }}</code></pre>
                                         </div>
                                         <div class="modal-footer">
                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>

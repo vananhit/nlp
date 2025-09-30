@@ -13,6 +13,7 @@ from backend.security import create_access_token, verify_password, get_password_
 from backend.core.config import settings
 from datetime import timedelta, datetime
 from jose import JWTError, jwt
+import json
 
 # --- Setup ---
 router = APIRouter()
@@ -215,10 +216,15 @@ async def view_history(
 
     logs = query.order_by(UsageLog.timestamp.desc()).all()
 
+    # Helper function to format JSON with Unicode characters preserved
+    def pretty_json_formatter(data):
+        return json.dumps(data, indent=2, ensure_ascii=False)
+
     return templates.TemplateResponse("admin/history.html", {
         "request": request,
         "logs": logs,
-        "filters": {"email": email, "start_date": start_date, "end_date": end_date}
+        "filters": {"email": email, "start_date": start_date, "end_date": end_date},
+        "pretty_json": pretty_json_formatter
     })
 
 @router.get("/admin/clients", response_class=HTMLResponse)
