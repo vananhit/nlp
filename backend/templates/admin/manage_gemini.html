@@ -1,0 +1,176 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Khóa API Gemini{% endblock %}
+
+{% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<style>
+    .key-text {
+        word-break: break-all;
+    }
+    .status {
+        font-weight: bold;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        color: white;
+        text-transform: capitalize;
+        white-space: nowrap;
+    }
+    .status-valid { background-color: #28a745; }
+    .status-invalid { background-color: #dc3545; }
+    .status-unchecked { background-color: #6c757d; }
+    .actions .btn, .actions form {
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4">Quản lý Khóa API Gemini</h1>
+
+    <!-- Data Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fa-solid fa-key me-2"></i>Danh sách khóa API</h6>
+        </div>
+        <div class="card-body">
+            <table id="geminiKeysTable" class="table table-striped table-bordered" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Khóa API</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key_info in keys %}
+                    <tr data-key-row="{{ key_info.key }}">
+                        <td class="key-text">{{ key_info.key }}</td>
+                        <td>
+                            <span class="status status-{{ key_info.status }}" id="status-{{ key_info.key }}">{{ key_info.status }}</span>
+                        </td>
+                        <td class="actions">
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-secondary check-status-btn" data-key="{{ key_info.key }}">Kiểm tra</button>
+                                <form action="/api/admin/delete-key" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa khóa API này không?');">
+                                    <input type="hidden" name="key_to_delete" value="{{ key_info.key }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add Key Form -->
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fa-solid fa-plus me-2"></i>Thêm khóa API mới</h6>
+        </div>
+        <div class="card-body">
+            <form action="/api/admin/add-key" method="post" id="add-key-form">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="new_key" id="new-key-input" placeholder="Nhập khóa API Gemini mới..." required>
+                    <button type="submit" class="btn btn-primary" id="add-key-btn">Thêm khóa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(document).ready(function() {
+    // --- Initialize DataTables ---
+    $('#geminiKeysTable').DataTable({
+        "order": [[ 0, "asc" ]], // Sắp xếp theo Khóa API
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json"
+        }
+    });
+
+    // --- Add Key Form Submission (with validation) ---
+    $('#add-key-form').on('submit', async function(event) {
+        event.preventDefault();
+        const form = this;
+        const keyInput = $('#new-key-input');
+        const submitButton = $('#add-key-btn');
+        const newKey = keyInput.val().trim();
+
+        if (!newKey) {
+            alert('Vui lòng nhập khóa API.');
+            return;
+        }
+
+        submitButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xác thực...');
+
+        try {
+            const formData = new FormData();
+            formData.append('new_key', newKey);
+
+            const response = await fetch('/api/admin/validate-key', {
+                method: 'POST',
+                body: formData,
+            });
+            const result = await response.json();
+
+            if (response.ok && result.valid) {
+                form.submit(); // Submit the original form to add the key
+            } else {
+                alert(result.error || 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.');
+                submitButton.prop('disabled', false).text('Thêm khóa');
+            }
+        } catch (error) {
+            console.error('Lỗi trong quá trình xác thực khóa:', error);
+            alert('Đã xảy ra lỗi khi cố gắng xác thực khóa.');
+            submitButton.prop('disabled', false).text('Thêm khóa');
+        }
+    });
+
+    // --- Check Key Status ---
+    $('#geminiKeysTable').on('click', '.check-status-btn', async function() {
+        const button = $(this);
+        const keyToCheck = button.data('key');
+        
+        button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang kiểm tra...');
+
+        const statusSpan = $(`#status-${keyToCheck}`);
+        
+        try {
+            const formData = new FormData();
+            formData.append('key_to_check', keyToCheck);
+
+            const response = await fetch('/api/admin/check-key-status', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Máy chủ đã trả về lỗi.');
+            }
+
+            const result = await response.json();
+            
+            statusSpan.text(result.status).removeClass().addClass(`status status-${result.status}`);
+
+        } catch (error) {
+            console.error('Lỗi khi kiểm tra trạng thái khóa:', error);
+            alert('Không thể kiểm tra trạng thái khóa.');
+        } finally {
+            button.prop('disabled', false).text('Kiểm tra');
+        }
+    });
+});
+</script>
+{% endblock %}

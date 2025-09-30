@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Python virtual environment
+backend/venv/
+
+# Python cache
+**/__pycache__/
+*.pyc
+
+# Environment variables file
+# Secrets should be passed in at runtime, not built into the image
+backend/.env
+
+# Mock credentials file
+backend/gcp-service-account-mock.json

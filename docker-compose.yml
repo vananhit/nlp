@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seo-tool-backend:latest
+    container_name: seo-tool-container
+    ports:
+      - "6969:8000"
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped

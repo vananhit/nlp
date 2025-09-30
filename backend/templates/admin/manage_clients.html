@@ -1,0 +1,74 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Manage Client Apps{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Manage Client Applications</h2>
+
+    <!-- Display newly created client secret -->
+    {% if new_client %}
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">Client App Created Successfully!</h4>
+        <p>A new client application named <strong>{{ new_client.name }}</strong> has been created.</p>
+        <hr>
+        <p class="mb-0"><strong>Client ID:</strong> <code>{{ new_client.client_id }}</code></p>
+        <p class="mb-0"><strong>Client Secret:</strong> <code>{{ new_client_secret }}</code></p>
+        <p class="mt-2 text-danger"><strong>Important:</strong> This is the only time the client secret will be displayed. Please copy and store it securely.</p>
+    </div>
+    {% endif %}
+
+    <!-- Form to add a new client app -->
+    <div class="card mb-4">
+        <div class="card-header">
+            Add New Client App
+        </div>
+        <div class="card-body">
+            <form action="/api/admin/clients/add" method="post">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="name" placeholder="Enter a name for the new client app" required>
+                    <button class="btn btn-primary" type="submit">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table of existing client apps -->
+    <div class="card">
+        <div class="card-header">
+            Existing Client Apps
+        </div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Client ID</th>
+                        <th>Created At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in clients %}
+                    <tr>
+                        <td>{{ client.name }}</td>
+                        <td><code>{{ client.client_id }}</code></td>
+                        <td>{{ client.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <form action="/api/admin/clients/delete" method="post" onsubmit="return confirm('Are you sure you want to delete this client app?');">
+                                <input type="hidden" name="client_id" value="{{ client.client_id }}">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">No client apps found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Tài khoản Dịch vụ GCP{% endblock %}
+
+{% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<style>
+    .account-info {
+        word-break: break-all;
+    }
+    .upload-card {
+        border-style: dashed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4">Quản lý Tài khoản Dịch vụ GCP</h1>
+
+    <!-- Data Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fa-solid fa-list me-2"></i>Danh sách tài khoản</h6>
+        </div>
+        <div class="card-body">
+            <table id="gcpAccountsTable" class="table table-striped table-bordered" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Client Email</th>
+                        <th>Project ID</th>
+                        <th>Tên tệp</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for account in accounts %}
+                    <tr>
+                        <td class="account-info">{{ account.client_email }}</td>
+                        <td class="account-info">{{ account.project_id }}</td>
+                        <td class="account-info">{{ account.filename }}</td>
+                        <td>
+                            <form action="/api/admin/gcp-accounts/delete" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài khoản dịch vụ này không?');">
+                                <input type="hidden" name="filename" value="{{ account.filename }}">
+                                <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+             {% if not accounts %}
+            <div class="alert alert-warning text-center" role="alert">
+                Không tìm thấy tài khoản dịch vụ nào. Hãy tải lên một tệp để bắt đầu.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Upload Form -->
+    <div class="card shadow-sm upload-card">
+        <div class="card-body text-center">
+             <h5 class="card-title">Tải lên Tài khoản Dịch vụ Mới</h5>
+             <p class="card-text text-muted">Chọn tệp JSON tài khoản dịch vụ của bạn để tải lên.</p>
+            <form action="/api/admin/gcp-accounts/upload" method="post" enctype="multipart/form-data" class="d-inline-block" id="upload-form">
+                <div class="mb-3">
+                    <input type="file" class="form-control" name="file" accept=".json" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Tải lên</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('#gcpAccountsTable').DataTable({
+        "order": [[ 2, "asc" ]], // Sắp xếp theo tên tệp
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json"
+        }
+    });
+});
+</script>
+{% endblock %}
