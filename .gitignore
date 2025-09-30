@@ -134,3 +134,6 @@ cython_debug/
 *.db
 *.db-journal
 sql_app.db
+
+backend/credentials/
+backend/api_keys.json
