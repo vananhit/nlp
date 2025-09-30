@@ -350,21 +350,22 @@ function writeOutputData(inputId, result) {
 
   let analysisResult = '';
   try {
-    // Check if analysis and analysis_notes exist and if analysis_notes is an array
-    if (result && result.analysis && Array.isArray(result.analysis.analysis_notes)) {
+    // Sửa lỗi: Kiểm tra trực tiếp result.analysis_notes
+    if (result && Array.isArray(result.analysis_notes)) {
       // Build a bulleted list from the array of strings
-      analysisResult = result.analysis.analysis_notes.map(note => `- ${note}`).join('\n');
-    } else {
-      // Fallback to JSON stringify if the structure is not as expected
+      analysisResult = result.analysis_notes.map(note => `- ${note}`).join('\n');
+    } else if (result && result.analysis) { // Fallback cho các cấu trúc khác có thể có
       analysisResult = JSON.stringify(result.analysis, null, 2);
     }
   } catch (e) {
-    // If any error occurs during formatting, stringify the whole result object for debugging
+    // Nếu có lỗi xảy ra, ghi lại toàn bộ đối tượng result để debug
     analysisResult = JSON.stringify(result, null, 2);
-    console.error("Error formatting analysis result: ", e);
+    console.error("Lỗi khi định dạng kết quả phân tích: ", e);
   }
 
   const timestamp = new Date();
-  
-  sheet.appendRow([inputId, analysisResult, '', timestamp]);
+  const rewrittenContent = result.rewritten_content || ''; // Lấy nội dung đã tối ưu
+
+  // Sửa lỗi: Thêm rewrittenContent vào đúng cột
+  sheet.appendRow([inputId, analysisResult, rewrittenContent, timestamp]);
 }
