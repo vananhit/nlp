@@ -11,8 +11,4 @@ services:
       - "6969:8000"
     env_file:
       - ./backend/.env
-    volumes:
-      - ./backend/api_keys.json:/app/backend/api_keys.json
-      - ./backend/credentials:/app/backend/credentials
-      - ./backend/sql_app.db:/app/backend/sql_app.db
     restart: unless-stopped
