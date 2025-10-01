@@ -4,7 +4,7 @@ import os
 
 # --- API Key Manager ---
 class ApiKeyManager:
-    def __init__(self, keys_file_path="backend/api_keys.json"):
+    def __init__(self, keys_file_path):
         self.keys_file_path = keys_file_path
         self.keys = self._load_keys()
         self.current_index = 0
@@ -105,4 +105,9 @@ class ApiKeyManager:
             json.dump({"keys": self.keys}, f, indent=2)
 
 # Tạo một instance duy nhất (singleton) của manager để toàn bộ ứng dụng sử dụng
-api_key_manager = ApiKeyManager()
+# Xác định đường dẫn tuyệt đối đến thư mục chứa file này (services)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Xây dựng đường dẫn tuyệt đối đến file api_keys.json, nằm ngay trong thư mục backend
+keys_file_path = os.path.join(current_dir, "..", "api_keys.json")
+
+api_key_manager = ApiKeyManager(keys_file_path=keys_file_path)
