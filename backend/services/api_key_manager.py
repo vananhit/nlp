@@ -16,9 +16,6 @@ class ApiKeyManager:
         Tự động chuyển đổi cấu trúc dữ liệu cũ (list of strings) sang mới (list of dicts).
         """
         try:
-            # Đảm bảo thư mục tồn tại trước khi thao tác với file
-            os.makedirs(os.path.dirname(self.keys_file_path), exist_ok=True)
-
             if not os.path.exists(self.keys_file_path):
                 with open(self.keys_file_path, "w") as f:
                     json.dump({"keys": []}, f)
@@ -37,7 +34,7 @@ class ApiKeyManager:
                 return new_keys_data
             
             return keys_data
-        except (json.JSONDecodeError) as e:
+        except Exception as e:
             print(f"Error loading API keys: {e}.")
             return []
 
