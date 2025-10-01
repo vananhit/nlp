@@ -64,9 +64,19 @@ async def handle_login(request: Request, db: Session = Depends(get_db), username
         user_agent_string = request.headers.get("user-agent")
         user_agent = parse(user_agent_string)
         
+        # --- Get real IP from headers ---
+        x_forwarded_for = request.headers.get("x-forwarded-for")
+        if x_forwarded_for:
+            # The header can contain a comma-separated list of IPs.
+            # The client's IP is typically the first one.
+            ip_address = x_forwarded_for.split(",")[0].strip()
+        else:
+            # Fallback to client.host if the header is not present
+            ip_address = request.client.host
+
         login_history = AdminLoginHistory(
             username=username,
-            ip_address=request.client.host,
+            ip_address=ip_address,
             user_agent=user_agent_string,
             os=user_agent.os.family,
             os_version=user_agent.os.version_string,
