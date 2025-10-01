@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -24,7 +27,8 @@ def process_content_sync(
     # --- Ghi log sử dụng ---
     log_entry = UsageLog(
         user_email=x_user_email or "unknown",
-        request_data=request_body.dict()
+        request_data=request_body.dict(),
+        timestamp=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
     )
     db.add(log_entry)
     db.commit()

@@ -2,12 +2,13 @@ from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from backend.api.api import api_router
 from backend.database import engine
-from backend.models import usage_log, client_app # Import the models module
+from backend.models import usage_log, client_app, admin_login_history # Import the models module
 from backend.core.config import settings
 
 # Create the database tables
 usage_log.Base.metadata.create_all(bind=engine)
 client_app.Base.metadata.create_all(bind=engine)
+admin_login_history.Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(

@@ -54,7 +54,7 @@
             </a>
             <hr>
             <ul class="nav nav-pills flex-column mb-auto">
-                <li class="nav-item">
+                <li>
                     <a href="/api/admin/gemini-keys" class="nav-link {{ 'active' if 'gemini-keys' in request.url.path else '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Quản lý Gemini Keys">
                         <i class="fa-solid fa-key fa-fw"></i>
                         <span>Quản lý Gemini Keys</span>
@@ -67,15 +67,21 @@
                     </a>
                 </li>
                 <li>
-                    <a href="/api/admin/history" class="nav-link {{ 'active' if 'history' in request.url.path else '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Lịch sử Sử dụng">
+                    <a href="/api/admin/clients" class="nav-link {{ 'active' if 'clients' in request.url.path else '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Quản lý Client Apps">
+                        <i class="fa-solid fa-shield-halved fa-fw"></i>
+                        <span>Quản lý Client Apps</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/api/admin/history" class="nav-link {{ 'active' if request.url.path == '/api/admin/history' else '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Lịch sử Sử dụng">
                         <i class="fa-solid fa-history fa-fw"></i>
                         <span>Lịch sử Sử dụng</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/api/admin/clients" class="nav-link {{ 'active' if 'clients' in request.url.path else '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Quản lý Client Apps">
-                        <i class="fa-solid fa-shield-halved fa-fw"></i>
-                        <span>Quản lý Client Apps</span>
+                    <a href="/api/admin/login-history" class="nav-link {{ 'active' if 'login-history' in request.url.path else '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Lịch sử Đăng nhập">
+                        <i class="fa-solid fa-right-to-bracket fa-fw"></i>
+                        <span>Lịch sử Đăng nhập</span>
                     </a>
                 </li>
             </ul>

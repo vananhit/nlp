@@ -6,7 +6,9 @@ from google.api_core import exceptions as google_exceptions
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.usage_log import UsageLog
+from backend.models.admin_login_history import AdminLoginHistory
 from backend.services.api_key_manager import api_key_manager
+from user_agents import parse
 from backend.services.gcp_sa_manager import gcp_sa_manager
 from backend.services.client_app_manager import client_app_manager
 from backend.security import create_access_token, verify_password, get_password_hash
@@ -20,10 +22,9 @@ router = APIRouter()
 # Point to the root of the templates directory
 templates = Jinja2Templates(directory="backend/templates")
 
-# --- Hardcoded Admin User for simplicity ---
-# In a real application, this would come from a database.
-ADMIN_USERNAME = "admin"
-ADMIN_HASHED_PASSWORD = get_password_hash("12345678@Abc") # Default password is "admin"
+# --- Admin User from Settings ---
+ADMIN_USERNAME = settings.ADMIN_USERNAME
+ADMIN_HASHED_PASSWORD = get_password_hash(settings.ADMIN_PASSWORD) if settings.ADMIN_PASSWORD else ""
 
 # --- Authentication Dependency ---
 async def get_current_admin(request: Request):
@@ -43,7 +44,7 @@ async def get_current_admin(request: Request):
         if username is None:
             return None
         # In a real app, you might want to look up the user in a DB here
-        if username == ADMIN_USERNAME:
+        if username == settings.ADMIN_USERNAME:
              return username
         return None
     except JWTError:
@@ -55,8 +56,27 @@ async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @router.post("/admin/login")
-async def handle_login(request: Request, username: str = Form(...), password: str = Form(...)):
-    if username == ADMIN_USERNAME and verify_password(password, ADMIN_HASHED_PASSWORD):
+async def handle_login(request: Request, db: Session = Depends(get_db), username: str = Form(...), password: str = Form(...)):
+    # If password is not set, ADMIN_HASHED_PASSWORD will be an empty string,
+    # and verify_password will always fail, effectively disabling login.
+    if settings.ADMIN_USERNAME and   ADMIN_HASHED_PASSWORD and username == settings.ADMIN_USERNAME  and verify_password(password, ADMIN_HASHED_PASSWORD):
+        # --- Log login history ---
+        user_agent_string = request.headers.get("user-agent")
+        user_agent = parse(user_agent_string)
+        
+        login_history = AdminLoginHistory(
+            username=username,
+            ip_address=request.client.host,
+            user_agent=user_agent_string,
+            os=user_agent.os.family,
+            os_version=user_agent.os.version_string,
+            browser=user_agent.browser.family,
+            browser_version=user_agent.browser.version_string
+        )
+        db.add(login_history)
+        db.commit()
+        # --- End log ---
+
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data={"sub": username}, expires_delta=access_token_expires
@@ -269,3 +289,46 @@ async def delete_client_app(request: Request, client_id: str = Form(...), db: Se
         
     client_app_manager.delete_client_app(db, client_id)
     return RedirectResponse(url="/api/admin/clients", status_code=303)
+
+@router.get("/admin/login-history", response_class=HTMLResponse)
+async def view_login_history(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: str = Depends(get_current_admin),
+    username: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None)
+):
+    if not user:
+        return RedirectResponse(url="/api/admin/login")
+
+    # --- Set default date filters to today if not provided ---
+    if start_date is None and end_date is None:
+        today = datetime.now().strftime("%Y-%m-%d")
+        start_date = today
+        end_date = today
+
+    query = db.query(AdminLoginHistory)
+
+    if username:
+        query = query.filter(AdminLoginHistory.username.ilike(f"%{username}%"))
+    if start_date:
+        try:
+            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(AdminLoginHistory.timestamp >= start_datetime)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            query = query.filter(AdminLoginHistory.timestamp < end_datetime)
+        except ValueError:
+            pass
+
+    history = query.order_by(AdminLoginHistory.timestamp.desc()).all()
+
+    return templates.TemplateResponse("admin/login_history.html", {
+        "request": request,
+        "history": history,
+        "filters": {"username": username, "start_date": start_date, "end_date": end_date}
+    })
