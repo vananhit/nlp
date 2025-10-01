@@ -2,8 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Sử dụng SQLite cho đơn giản, file database sẽ được tạo trong thư mục backend
-SQLALCHEMY_DATABASE_URL = "sqlite:///./backend/sql_app.db"
+# Sử dụng SQLite cho đơn giản, file database sẽ được tạo trong thư mục /app/data bên trong container
+SQLALCHEMY_DATABASE_URL = "sqlite:////app/data/sql_app.db"
 
 # create_engine cần đối số connect_args={"check_same_thread": False} chỉ khi dùng SQLite.
 # Điều này là để cho phép nhiều thread tương tác với database.

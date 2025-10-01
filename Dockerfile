@@ -10,6 +10,9 @@ COPY backend/requirements.txt .
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create a directory for the database
+RUN mkdir /app/data
+
 # Copy the entire backend directory into the container at /app
 COPY ./backend /app/backend
 
