@@ -52,7 +52,10 @@
                         <th>ID</th>
                         <th>Email</th>
                         <th>Thời gian</th>
-                        <th>Chi tiết Request</th>
+                        <th>Public IP</th>
+                        <th>Trình duyệt</th>
+                        <th>Hệ điều hành</th>
+                        <th>User Agent</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -61,29 +64,10 @@
                         <td>{{ log.id }}</td>
                         <td>{{ log.user_email }}</td>
                         <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#detailsModal-{{ log.id }}">
-                                Xem chi tiết
-                            </button>
-
-                            <!-- Modal -->
-                            <div class="modal fade" id="detailsModal-{{ log.id }}" tabindex="-1" aria-labelledby="detailsModalLabel-{{ log.id }}" aria-hidden="true">
-                                <div class="modal-dialog modal-lg">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="detailsModalLabel-{{ log.id }}">Chi tiết Request #{{ log.id }}</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <pre class="bg-light p-3 rounded"><code>{{ pretty_json(log.request_data) }}</code></pre>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
+                        <td>{{ log.public_ip }}</td>
+                        <td>{{ log.browser }} {{ log.browser_version }}</td>
+                        <td>{{ log.os }} {{ log.os_version }}</td>
+                        <td>{{ log.user_agent }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

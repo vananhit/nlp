@@ -1,9 +1,10 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+from user_agents import parse
 
 from backend.database import get_db
 from backend.models.usage_log import UsageLog
@@ -18,17 +19,37 @@ def process_content_sync(
     db: Session,
     request_body: ContentAnalysisRequest,
     current_user: TokenData,
-    x_user_email: str | None
+    x_user_email: str | None,
+    request: Request
 ) -> RewriteResponse:
     """
     Hàm đồng bộ chứa logic xử lý nội dung nặng.
     Hàm này sẽ được chạy trong một thread riêng để không block event loop.
     """
+    # --- Thu thập thông tin request ---
+    user_agent_string = request.headers.get("user-agent", "unknown")
+    user_agent = parse(user_agent_string)
+
+    # --- Get real IP from headers ---
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        # The header can contain a comma-separated list of IPs.
+        # The client's IP is typically the first one.
+        ip_address = x_forwarded_for.split(",")[0].strip()
+    else:
+        # Fallback to client.host if the header is not present
+        ip_address = request.client.host
+    
     # --- Ghi log sử dụng ---
     log_entry = UsageLog(
         user_email=x_user_email or "unknown",
-        request_data=request_body.dict(),
-        timestamp=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+        timestamp=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")),
+        public_ip=ip_address,
+        user_agent=user_agent_string,
+        browser=user_agent.browser.family,
+        browser_version=user_agent.browser.version_string,
+        os=user_agent.os.family,
+        os_version=user_agent.os.version_string
     )
     db.add(log_entry)
     db.commit()
@@ -65,6 +86,7 @@ def process_content_sync(
 @router.post("/process-content", response_model=RewriteResponse)
 async def process_content(
     request_body: ContentAnalysisRequest,
+    request: Request,
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db),
     x_user_email: str | None = Header(default=None, alias="X-User-Email")
@@ -81,7 +103,8 @@ async def process_content(
             db=db,
             request_body=request_body,
             current_user=current_user,
-            x_user_email=x_user_email
+            x_user_email=x_user_email,
+            request=request
         )
         return response
     except Exception as e:
