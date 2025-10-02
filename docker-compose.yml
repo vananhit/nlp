@@ -9,4 +9,4 @@ services:
       - "6969:8000"
     env_file:
       - ./backend/.env
-    volumes:
+   
