@@ -1,5 +1,4 @@
 import google.generativeai as genai
-from backend.core.config import settings
 import json
 from backend.services.api_key_manager import api_key_manager
 
