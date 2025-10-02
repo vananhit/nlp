@@ -106,8 +106,7 @@ class ApiKeyManager:
 
 # Tạo một instance duy nhất (singleton) của manager để toàn bộ ứng dụng sử dụng
 # Xác định đường dẫn tuyệt đối đến thư mục chứa file này (services)
-current_dir = os.path.dirname(os.path.abspath(__file__))
 # Xây dựng đường dẫn tuyệt đối đến file api_keys.json, nằm ngay trong thư mục backend
-keys_file_path = os.path.join(current_dir, "..", "api_keys.json")
+keys_file_path = os.path.join(os.getcwd(), "backend", "api_keys.json")
 
 api_key_manager = ApiKeyManager(keys_file_path=keys_file_path)
