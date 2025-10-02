@@ -13,9 +13,7 @@ backend/venv/
 **/__pycache__/
 *.pyc
 
-# Environment variables file
-# Secrets should be passed in at runtime, not built into the image
-backend/.env
+sql_app.db
 
-# Mock credentials file
-backend/gcp-service-account-mock.json
+backend/credentials/
+backend/api_keys.json
