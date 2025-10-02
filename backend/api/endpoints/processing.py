@@ -12,7 +12,7 @@ from backend.schemas.token import TokenData
 from backend.schemas.content import ContentAnalysisRequest, RewriteResponse
 from backend.security import get_current_user
 from backend.services import gcp_nlp, llm_rewriter
-
+import pytz
 router = APIRouter()
 
 def process_content_sync(
@@ -43,7 +43,6 @@ def process_content_sync(
     # --- Ghi log sử dụng ---
     log_entry = UsageLog(
         user_email=x_user_email or "unknown",
-        timestamp=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")),
         public_ip=ip_address,
         user_agent=user_agent_string,
         browser=user_agent.browser.family,

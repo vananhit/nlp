@@ -1,13 +1,16 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
 from backend.database import Base
-
+import pytz
+from datetime import datetime
+def get_vn_time():
+    return datetime.now(pytz.timezone('Asia/Ho_Chi_Minh'))
 class UsageLog(Base):
     __tablename__ = "usage_logs"
 
     id = Column(Integer, primary_key=True, index=True)
     user_email = Column(String, index=True)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    timestamp = Column(DateTime(timezone=True), default=get_vn_time)
     public_ip = Column(String)
     user_agent = Column(String)
     browser = Column(String)
