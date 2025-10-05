@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
 
+    # Worker
+    WORKER_CLIENT_ID: str 
+    WORKER_SECRET_ID: str 
+    MAX_CONCURRENT_CRAWLS: int = 3
+
     class Config:
         env_file = "backend/.env"
 

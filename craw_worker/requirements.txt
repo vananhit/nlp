@@ -1,0 +1,5 @@
+python-socketio[client]
+seleniumbase
+beautifulsoup4
+lxml
+python-dotenv
