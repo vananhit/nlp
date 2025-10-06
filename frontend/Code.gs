@@ -29,12 +29,11 @@ const BIO_WEBSITE_COL = 3;
 const BIO_NAME_COL = 4;
 const BIO_USERNAME_COL = 5;
 const BIO_SHORT_DESC_COL = 6;
-const BIO_MAIN_KEYWORD_COL = 7;
-const BIO_ADDRESS_COL = 8;
-const BIO_HOTLINE_COL = 9;
-const BIO_ZIPCODE_COL = 10;
-const BIO_NUM_ENTITIES_COL = 11;
-const BIO_STATUS_COL = 12;
+const BIO_ADDRESS_COL = 7;
+const BIO_HOTLINE_COL = 8;
+const BIO_ZIPCODE_COL = 9;
+const BIO_NUM_ENTITIES_COL = 10;
+const BIO_STATUS_COL = 11;
 
 
 // --- UI FUNCTIONS ---
@@ -282,19 +281,25 @@ function processFirstSeoSuggestionRow() {
   }
 
   const statusCell = sheet.getRange(targetRow, SEO_STATUS_COL);
+  const rowData = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const keyword = rowData[SEO_KEYWORD_COL - 1];
+
+  // --- VALIDATION ---
+  if (!keyword || !keyword.trim()) {
+    ui.alert('Lỗi Dữ liệu', 'Vui lòng điền "Từ khóa chính". Trường này không được để trống.', ui.ButtonSet.OK);
+    return;
+  }
   
   try {
     statusCell.setValue('Đang xử lý');
     SpreadsheetApp.flush();
-
-    const rowData = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
     
     const outputFieldsStr = rowData[SEO_OUTPUT_FIELDS_COL - 1] || '';
     const outputFields = outputFieldsStr.split(',').map(item => item.trim()).filter(item => item);
 
     const requestData = {
       id: rowData[SEO_ID_COL - 1],
-      keyword: rowData[SEO_KEYWORD_COL - 1],
+      keyword: keyword, // Sử dụng biến đã validate
       marketing_goal: rowData[SEO_GOAL_COL - 1],
       target_audience: rowData[SEO_AUDIENCE_COL - 1],
       brand_voice: rowData[SEO_VOICE_COL - 1],
@@ -302,10 +307,6 @@ function processFirstSeoSuggestionRow() {
       num_suggestions: parseInt(rowData[SEO_NUM_SUGGESTIONS_COL - 1], 10) || 3,
       output_fields: outputFields.length > 0 ? outputFields : ["title", "description", "h1", "sapo", "content"]
     };
-
-    if (!requestData.keyword) {
-      throw new Error('Vui lòng điền "Từ khóa chính".');
-    }
 
     const { clientId, clientSecret } = getClientCredentials();
     const accessToken = getAccessToken(clientId, clientSecret);
@@ -340,11 +341,13 @@ function callGenerateSeoSuggestionsApi(token, requestData) {
       output_fields: requestData.output_fields
   };
 
+  const userEmail = Session.getActiveUser().getEmail();
   const options = {
     'method': 'post',
     'contentType': 'application/json',
     'headers': { 
-      'Authorization': 'Bearer ' + token
+      'Authorization': 'Bearer ' + token,
+      'X-User-Email': userEmail
     },
     'payload': JSON.stringify(payload),
     'muteHttpExceptions': true
@@ -405,10 +408,10 @@ function createBioTemplate() {
   const inputSheet = ss.insertSheet(BIO_INPUT_SHEET_NAME);
   const headers = [[
     'ID', 'Keyword (Từ khóa)', 'Website', 'Name (Tên)', 'Username', 
-    'Short Description (Mô tả ngắn)', 'Main Keyword (Từ khóa chính)', 
+    'Short Description (Mô tả ngắn)', 
     'Address (Địa chỉ)', 'Hotline', 'Zipcode', 'Num Bio Entities (Số lượng Bio)', 'Trạng thái'
   ]];
-  const headersRange = inputSheet.getRange('A1:L1');
+  const headersRange = inputSheet.getRange('A1:K1');
   
   headersRange.setValues(headers)
               .setFontWeight('bold')
@@ -422,14 +425,13 @@ function createBioTemplate() {
   inputSheet.setColumnWidth(BIO_NAME_COL, 150);
   inputSheet.setColumnWidth(BIO_USERNAME_COL, 150);
   inputSheet.setColumnWidth(BIO_SHORT_DESC_COL, 300);
-  inputSheet.setColumnWidth(BIO_MAIN_KEYWORD_COL, 200);
   inputSheet.setColumnWidth(BIO_ADDRESS_COL, 250);
   inputSheet.setColumnWidth(BIO_HOTLINE_COL, 120);
   inputSheet.setColumnWidth(BIO_ZIPCODE_COL, 100);
   inputSheet.setColumnWidth(BIO_NUM_ENTITIES_COL, 120);
   inputSheet.setColumnWidth(BIO_STATUS_COL, 120);
 
-  inputSheet.getRange('A2:L').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  inputSheet.getRange('A2:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   inputSheet.getRange(2, BIO_ID_COL, inputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
   const statusRule = SpreadsheetApp.newDataValidation()
@@ -529,30 +531,36 @@ function processFirstPendingBioRow() {
   }
 
   const statusCell = sheet.getRange(targetRow, BIO_STATUS_COL);
-  
+  const rowData = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const keyword = rowData[BIO_KEYWORD_COL - 1];
+  const website = rowData[BIO_WEBSITE_COL - 1];
+
+  // --- VALIDATION ---
+  if (!keyword || !keyword.trim()) {
+    ui.alert('Lỗi Dữ liệu', 'Vui lòng điền "Keyword". Trường này không được để trống.', ui.ButtonSet.OK);
+    return;
+  }
+  if (!website || !website.trim()) {
+    ui.alert('Lỗi Dữ liệu', 'Vui lòng điền "Website". Trường này không được để trống.', ui.ButtonSet.OK);
+    return;
+  }
+
   try {
     statusCell.setValue('Đang xử lý');
     SpreadsheetApp.flush();
-
-    const rowData = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
     
     const requestData = {
       id: rowData[BIO_ID_COL - 1],
-      keyword: rowData[BIO_KEYWORD_COL - 1],
-      website: rowData[BIO_WEBSITE_COL - 1],
+      keyword: keyword, // Sử dụng biến đã validate
+      website: website, // Sử dụng biến đã validate
       name: rowData[BIO_NAME_COL - 1],
       username: rowData[BIO_USERNAME_COL - 1],
       short_description: rowData[BIO_SHORT_DESC_COL - 1],
-      main_keyword: rowData[BIO_MAIN_KEYWORD_COL - 1],
       address: rowData[BIO_ADDRESS_COL - 1],
-      hotline: rowData[BIO_HOTLINE_COL - 1],
-      zipcode: rowData[BIO_ZIPCODE_COL - 1],
+      hotline: String(rowData[BIO_HOTLINE_COL - 1] || ''),
+      zipcode: String(rowData[BIO_ZIPCODE_COL - 1] || ''),
       num_bio_entities: parseInt(rowData[BIO_NUM_ENTITIES_COL - 1], 10) || 5
     };
-
-    if (!requestData.keyword || !requestData.website) {
-      throw new Error('Vui lòng điền "Keyword" và "Website".');
-    }
 
     const { clientId, clientSecret } = getClientCredentials();
     const accessToken = getAccessToken(clientId, clientSecret);
@@ -581,11 +589,13 @@ function callGenerateBioApi(token, requestData) {
   const payload = { ...requestData };
   delete payload.id;
 
+  const userEmail = Session.getActiveUser().getEmail();
   const options = {
     'method': 'post',
     'contentType': 'application/json',
     'headers': { 
-      'Authorization': 'Bearer ' + token
+      'Authorization': 'Bearer ' + token,
+      'X-User-Email': userEmail
     },
     'payload': JSON.stringify(payload),
     'muteHttpExceptions': true
