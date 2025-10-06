@@ -52,6 +52,7 @@
                         <th>ID</th>
                         <th>Email</th>
                         <th>Thời gian</th>
+                        <th>Tên tính năng</th>
                         <th>Public IP</th>
                         <th>Trình duyệt</th>
                         <th>Hệ điều hành</th>
@@ -64,6 +65,7 @@
                         <td>{{ log.id }}</td>
                         <td>{{ log.user_email }}</td>
                         <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ log.feature_name }}</td>
                         <td>{{ log.public_ip }}</td>
                         <td>{{ log.browser }} {{ log.browser_version }}</td>
                         <td>{{ log.os }} {{ log.os_version }}</td>

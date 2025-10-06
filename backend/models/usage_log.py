@@ -17,3 +17,4 @@ class UsageLog(Base):
     browser_version = Column(String)
     os = Column(String)
     os_version = Column(String)
+    feature_name = Column(String, nullable=True)

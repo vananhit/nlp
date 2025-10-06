@@ -74,7 +74,6 @@ def on_start_crawl(data):
                     count += 1
         print(f"Successfully crawled {len(results)} results.")
         payload = {'status': 'success', 'data': results, 'request_id': request_id}
-        print(f"Emitting crawl_result with payload: {payload}")
         sio.emit('crawl_result', payload)
 
     except Exception as e:
