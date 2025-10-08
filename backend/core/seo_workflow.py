@@ -9,11 +9,13 @@ class GraphState(TypedDict):
     keyword: str
     output_fields: List[str]  # Sẽ được sử dụng để xác định output cuối cùng
     num_suggestions: int
+    article_type: str | None
     # --- Ngữ cảnh từ người dùng ---
     marketing_goal: str | None
     target_audience: str | None
     brand_voice: str | None
     custom_notes: str | None
+    language: str | None
     # --- Dữ liệu xử lý trong workflow ---
     top_articles: List[Dict]
     analysis_results: List[Dict]
@@ -73,7 +75,9 @@ async def synthesize_analysis(state: GraphState) -> GraphState:
         marketing_goal=state.get('marketing_goal'),
         target_audience=state.get('target_audience'),
         brand_voice=state.get('brand_voice'),
-        custom_notes=state.get('custom_notes')
+        custom_notes=state.get('custom_notes'),
+        language=state.get('language'),
+        article_type=state.get('article_type')
     )
     print(f"Synthesized Brief: {brief[:500]}...")  # In một phần của brief để kiểm tra
     state['content_brief'] = brief
@@ -87,7 +91,8 @@ async def generate_initial_ideas(state: GraphState) -> GraphState:
     ideas = await asyncio.to_thread(
         llm_seo_analyzer.generate_seo_ideas,
         state['content_brief'],
-        state['num_suggestions']
+        state['num_suggestions'],
+        language=state.get('language')
     )
     state['seo_ideas'] = ideas
     return state
@@ -102,7 +107,8 @@ async def generate_outlines(state: GraphState) -> GraphState:
             llm_seo_analyzer.generate_seo_outline,
             state['content_brief'],
             idea['title'],
-            idea['meta_description']
+            idea['meta_description'],
+            language=state.get('language')
         )
         for idea in state['seo_ideas']
     ]
@@ -112,31 +118,51 @@ async def generate_outlines(state: GraphState) -> GraphState:
 
 async def generate_full_articles(state: GraphState) -> GraphState:
     """
-    Node: Viết bài viết hoàn chỉnh từ mỗi bộ (ý tưởng + dàn ý).
+    Node: Viết bài viết hoàn chỉnh và phân tích chuyên mục.
     """
     print(f"--- Node: Generating {len(state['outlines'])} full articles ---")
-    tasks = [
+    
+    # --- 1. Generate article content ---
+    generation_tasks = [
         asyncio.to_thread(
             llm_seo_analyzer.generate_article_from_outline,
             state['content_brief'],
             state['seo_ideas'][i]['title'],
-            outline
+            outline,
+            language=state.get('language')
         )
         for i, outline in enumerate(state['outlines'])
     ]
-    articles = await asyncio.gather(*tasks)
+    articles_content = await asyncio.gather(*generation_tasks)
     
-    # Tập hợp kết quả cuối cùng theo cấu trúc của Pydantic model SeoSuggestion
+    # --- 2. Analyze categories for each article ---
+    analysis_tasks = [
+        asyncio.to_thread(gcp_nlp.analyze_text, content)
+        for content in articles_content
+    ]
+    analysis_results = await asyncio.gather(*analysis_tasks)
+
+    # --- 3. Assemble final results ---
     final_suggestions = []
-    for i, article_content in enumerate(articles):
+    for i, article_content in enumerate(articles_content):
         idea = state['seo_ideas'][i]
+        nlp_result = analysis_results[i]
+        
+        # Sort categories by confidence and get top 10
+        sorted_categories = sorted(
+            nlp_result.get('categories', []), 
+            key=lambda x: x.get('confidence', 0), 
+            reverse=True
+        )
+        top_10_categories = [cat['name'] for cat in sorted_categories[:10]]
+
         final_suggestions.append({
             "title": idea.get("title"),
-            "description": idea.get("meta_description"), # Ánh xạ meta_description -> description
-            "h1": idea.get("title"), # Sử dụng title cho h1
+            "description": idea.get("meta_description"),
+            "h1": idea.get("title"),
             "sapo": idea.get("sapo"),
-            "content": article_content
-            # "outline" không có trong schema nên không đưa vào
+            "content": article_content,
+            "categories": top_10_categories
         })
         
     state['final_suggestions'] = final_suggestions

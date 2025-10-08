@@ -56,7 +56,9 @@ def synthesize_insights(
     marketing_goal: str | None = None,
     target_audience: str | None = None,
     brand_voice: str | None = None,
-    custom_notes: str | None = None
+    custom_notes: str | None = None,
+    language: str | None = "Vietnamese",
+    article_type: str | None = None
 ) -> str:
     """
     Tổng hợp kết quả phân tích từ nhiều đối thủ và ngữ cảnh tùy chỉnh để tạo ra một 'Content Brief'.
@@ -72,6 +74,8 @@ def synthesize_insights(
 
     # --- Xây dựng phần prompt tùy chỉnh một cách linh hoạt ---
     custom_directives = []
+    if article_type:
+        custom_directives.append(f"- **Required Article Type:** {article_type}. The content brief MUST be tailored to this specific format.")
     if marketing_goal:
         custom_directives.append(f"- **Marketing Goal:** {marketing_goal}")
     if target_audience:
@@ -104,9 +108,10 @@ def synthesize_insights(
     ---
     """
 
-    prompt += """
+    prompt += f"""
     **Your Task:**
     Based on BOTH the competitor analysis and the custom directives (if provided), create a comprehensive content brief. The brief must be a clear, concise, and actionable set of instructions for a writer to create a new piece of content that is superior to the current top 10 while adhering to the brand's strategy.
+    The entire output must be in {language}.
 
     The brief must include the following sections:
 
@@ -127,7 +132,7 @@ def synthesize_insights(
         print(f"Error during insight synthesis with LLM: {e}")
         return f"Error: Failed to synthesize insights. Details: {e}"
 
-def generate_seo_ideas(brief: str, num_suggestions: int) -> List[Dict[str, str]]:
+def generate_seo_ideas(brief: str, num_suggestions: int, language: str | None = "Vietnamese") -> List[Dict[str, str]]:
     """
     Từ Content Brief, tạo ra N bộ ý tưởng (Title, Meta Description, Sapo) đa dạng.
     """
@@ -147,6 +152,7 @@ def generate_seo_ideas(brief: str, num_suggestions: int) -> List[Dict[str, str]]
     ---
 
     Your response MUST be a single, valid JSON array, where each element is an object containing "title", "meta_description", and "sapo". Ensure the ideas are distinct from each other.
+    The content of "title", "meta_description", and "sapo" must be in {language}.
 
     Example JSON structure:
     [
@@ -170,7 +176,7 @@ def generate_seo_ideas(brief: str, num_suggestions: int) -> List[Dict[str, str]]
         print(f"Error during SEO idea generation with LLM: {e}")
         return [{"error": f"Failed to generate ideas. Raw response: {response.text if 'response' in locals() else 'N/A'}"}]
 
-def generate_seo_outline(brief: str, title: str, meta_description: str) -> str:
+def generate_seo_outline(brief: str, title: str, meta_description: str, language: str | None = "Vietnamese") -> str:
     """
     Tạo ra một dàn ý chuẩn SEO (outline) chi tiết cho bài viết dựa trên brief và một ý tưởng cụ thể.
     """
@@ -199,6 +205,7 @@ def generate_seo_outline(brief: str, title: str, meta_description: str) -> str:
 
     **Your Task:**
     Create a comprehensive and logical article outline based on all the information provided. The outline should be well-structured with clear headings and subheadings (H2, H3, H4). It must cover the core topics from the brief and naturally incorporate the must-include entities. The structure should guide a writer to create an article that is superior to competitors.
+    The entire outline must be written in {language}.
 
     Provide the response as a well-formatted Markdown string.
     """
@@ -209,7 +216,7 @@ def generate_seo_outline(brief: str, title: str, meta_description: str) -> str:
         print(f"Error during outline generation with LLM: {e}")
         return f"Error: Failed to generate outline. Details: {e}"
 
-def generate_article_from_outline(brief: str, title: str, outline: str) -> str:
+def generate_article_from_outline(brief: str, title: str, outline: str, language: str | None = "Vietnamese") -> str:
     """
     Viết một bài viết hoàn chỉnh dựa trên brief, title, và một dàn ý chi tiết.
     """
@@ -239,7 +246,7 @@ def generate_article_from_outline(brief: str, title: str, outline: str) -> str:
     ---
 
     **Your Task:**
-    Write a comprehensive, engaging, and SEO-optimized article.
+    Write a comprehensive, engaging, and SEO-optimized article in {language}.
     -   **Strictly follow the structure** defined in the Detailed Outline. Use the same headings (H2, H3, etc.).
     -   Ensure the tone, style, and core messages align with the Content Brief.
     -   Naturally weave in the key entities and topics mentioned in the brief.

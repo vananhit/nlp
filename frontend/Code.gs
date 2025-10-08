@@ -20,7 +20,9 @@ const SEO_VOICE_COL = 5;
 const SEO_NOTES_COL = 6;
 const SEO_NUM_SUGGESTIONS_COL = 7;
 const SEO_OUTPUT_FIELDS_COL = 8;
-const SEO_STATUS_COL = 9;
+const SEO_LANGUAGE_COL = 9;
+const SEO_ARTICLE_TYPE_COL = 10;
+const SEO_STATUS_COL = 11;
 
 // For Bio Generation
 const BIO_ID_COL = 1;
@@ -33,7 +35,8 @@ const BIO_ADDRESS_COL = 7;
 const BIO_HOTLINE_COL = 8;
 const BIO_ZIPCODE_COL = 9;
 const BIO_NUM_ENTITIES_COL = 10;
-const BIO_STATUS_COL = 11;
+const BIO_LANGUAGE_COL = 11;
+const BIO_STATUS_COL = 12;
 
 
 // --- UI FUNCTIONS ---
@@ -165,9 +168,9 @@ function createSeoSuggestionTemplate() {
   const inputSheet = ss.insertSheet(SEO_INPUT_SHEET_NAME);
   const headers = [[
     'ID', 'Từ khóa chính', 'Mục tiêu Marketing', 'Đối tượng mục tiêu', 
-    'Văn phong', 'Ghi chú thêm', 'Số lượng gợi ý', 'Các trường mong muốn', 'Trạng thái'
+    'Văn phong', 'Ghi chú thêm', 'Số lượng gợi ý', 'Các trường mong muốn', 'Ngôn ngữ', 'Loại bài viết', 'Trạng thái'
   ]];
-  const headersRange = inputSheet.getRange('A1:I1');
+  const headersRange = inputSheet.getRange('A1:K1');
   
   headersRange.setValues(headers)
               .setFontWeight('bold')
@@ -182,9 +185,11 @@ function createSeoSuggestionTemplate() {
   inputSheet.setColumnWidth(SEO_NOTES_COL, 300);
   inputSheet.setColumnWidth(SEO_NUM_SUGGESTIONS_COL, 120);
   inputSheet.setColumnWidth(SEO_OUTPUT_FIELDS_COL, 300);
+  inputSheet.setColumnWidth(SEO_LANGUAGE_COL, 120);
+  inputSheet.setColumnWidth(SEO_ARTICLE_TYPE_COL, 250);
   inputSheet.setColumnWidth(SEO_STATUS_COL, 120);
 
-  inputSheet.getRange('A2:I').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  inputSheet.getRange('A2:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   inputSheet.getRange(2, SEO_ID_COL, inputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
   const statusRule = SpreadsheetApp.newDataValidation()
@@ -208,24 +213,25 @@ function createSeoSuggestionTemplate() {
   // --- Create SEO_Output Sheet ---
   const outputSheet = ss.insertSheet(SEO_OUTPUT_SHEET_NAME);
   const outputHeaders = [[
-    'ID Input', 'Tiêu đề (title)', 'Mô tả (description)', 'H1', 'Sapo', 'Nội dung (content)', 'Thời gian xử lý'
+    'ID Input', 'Tiêu đề (title)', 'Mô tả (description)', 'H1', 'Sapo', 'Nội dung (content)', 'Chuyên mục (Categories)', 'Thời gian xử lý'
   ]];
-  const outputHeadersRange = outputSheet.getRange('A1:G1');
+  const outputHeadersRange = outputSheet.getRange('A1:H1');
   
   outputHeadersRange.setValues(outputHeaders)
                     .setFontWeight('bold')
                     .setBackground('#d9ead3')
                     .setHorizontalAlignment('center');
 
-  outputSheet.setColumnWidth(1, 150);
-  outputSheet.setColumnWidth(2, 300);
-  outputSheet.setColumnWidth(3, 400);
-  outputSheet.setColumnWidth(4, 250);
-  outputSheet.setColumnWidth(5, 400);
-  outputSheet.setColumnWidth(6, 600);
-  outputSheet.setColumnWidth(7, 150);
+  outputSheet.setColumnWidth(1, 150); // ID Input
+  outputSheet.setColumnWidth(2, 300); // Tiêu đề
+  outputSheet.setColumnWidth(3, 400); // Mô tả
+  outputSheet.setColumnWidth(4, 250); // H1
+  outputSheet.setColumnWidth(5, 400); // Sapo
+  outputSheet.setColumnWidth(6, 600); // Nội dung
+  outputSheet.setColumnWidth(7, 300); // Chuyên mục
+  outputSheet.setColumnWidth(8, 150); // Thời gian xử lý
   
-  outputSheet.getRange('A2:G').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  outputSheet.getRange('A2:H').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   outputSheet.getRange(2, 1, outputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
   outputSheet.setFrozenRows(1);
@@ -248,6 +254,7 @@ function addNewSeoSuggestionRow() {
   sheet.getRange(newRow, SEO_ID_COL).setValue(Utilities.getUuid());
   sheet.getRange(newRow, SEO_NUM_SUGGESTIONS_COL).setValue(3);
   sheet.getRange(newRow, SEO_OUTPUT_FIELDS_COL).setValue('title, description, h1, sapo, content');
+  sheet.getRange(newRow, SEO_LANGUAGE_COL).setValue('Vietnamese');
   sheet.getRange(newRow, SEO_STATUS_COL).setValue('Chờ duyệt');
   
   sheet.getRange(newRow, SEO_KEYWORD_COL).activate();
@@ -305,7 +312,9 @@ function processFirstSeoSuggestionRow() {
       brand_voice: rowData[SEO_VOICE_COL - 1],
       custom_notes: rowData[SEO_NOTES_COL - 1],
       num_suggestions: parseInt(rowData[SEO_NUM_SUGGESTIONS_COL - 1], 10) || 3,
-      output_fields: outputFields.length > 0 ? outputFields : ["title", "description", "h1", "sapo", "content"]
+      output_fields: outputFields.length > 0 ? outputFields : ["title", "description", "h1", "sapo", "content"],
+      language: rowData[SEO_LANGUAGE_COL - 1] || 'Vietnamese',
+      article_type: rowData[SEO_ARTICLE_TYPE_COL - 1]
     };
 
     const { clientId, clientSecret } = getClientCredentials();
@@ -338,7 +347,9 @@ function callGenerateSeoSuggestionsApi(token, requestData) {
       brand_voice: requestData.brand_voice,
       custom_notes: requestData.custom_notes,
       num_suggestions: requestData.num_suggestions,
-      output_fields: requestData.output_fields
+      output_fields: requestData.output_fields,
+      language: requestData.language,
+      article_type: requestData.article_type
   };
 
   const userEmail = Session.getActiveUser().getEmail();
@@ -373,6 +384,11 @@ function writeSeoOutputData(inputId, result) {
   if (result && Array.isArray(result.suggestions)) {
     const timestamp = new Date();
     result.suggestions.forEach(suggestion => {
+      // Chuyển mảng categories thành chuỗi, nếu không có thì trả về chuỗi rỗng
+      const categoriesText = (suggestion.categories && Array.isArray(suggestion.categories)) 
+        ? suggestion.categories.join(', ') 
+        : '';
+
       const row = [
         inputId,
         suggestion.title || '',
@@ -380,6 +396,7 @@ function writeSeoOutputData(inputId, result) {
         suggestion.h1 || '',
         suggestion.sapo || '',
         suggestion.content || '',
+        categoriesText,
         timestamp
       ];
       sheet.appendRow(row);
@@ -409,9 +426,9 @@ function createBioTemplate() {
   const headers = [[
     'ID', 'Keyword (Từ khóa)', 'Website', 'Name (Tên)', 'Username', 
     'Short Description (Mô tả ngắn)', 
-    'Address (Địa chỉ)', 'Hotline', 'Zipcode', 'Num Bio Entities (Số lượng Bio)', 'Trạng thái'
+    'Address (Địa chỉ)', 'Hotline', 'Zipcode', 'Num Bio Entities (Số lượng Bio)', 'Ngôn ngữ', 'Trạng thái'
   ]];
-  const headersRange = inputSheet.getRange('A1:K1');
+  const headersRange = inputSheet.getRange('A1:L1');
   
   headersRange.setValues(headers)
               .setFontWeight('bold')
@@ -429,9 +446,10 @@ function createBioTemplate() {
   inputSheet.setColumnWidth(BIO_HOTLINE_COL, 120);
   inputSheet.setColumnWidth(BIO_ZIPCODE_COL, 100);
   inputSheet.setColumnWidth(BIO_NUM_ENTITIES_COL, 120);
+  inputSheet.setColumnWidth(BIO_LANGUAGE_COL, 120);
   inputSheet.setColumnWidth(BIO_STATUS_COL, 120);
 
-  inputSheet.getRange('A2:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  inputSheet.getRange('A2:L').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   inputSheet.getRange(2, BIO_ID_COL, inputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
   const statusRule = SpreadsheetApp.newDataValidation()
@@ -498,6 +516,7 @@ function addNewBioRow() {
   
   sheet.getRange(newRow, BIO_ID_COL).setValue(Utilities.getUuid());
   sheet.getRange(newRow, BIO_NUM_ENTITIES_COL).setValue(5); // Default to 5 bio entities
+  sheet.getRange(newRow, BIO_LANGUAGE_COL).setValue('Vietnamese');
   sheet.getRange(newRow, BIO_STATUS_COL).setValue('Chờ duyệt');
   
   sheet.getRange(newRow, BIO_KEYWORD_COL).activate();
@@ -559,7 +578,8 @@ function processFirstPendingBioRow() {
       address: rowData[BIO_ADDRESS_COL - 1],
       hotline: String(rowData[BIO_HOTLINE_COL - 1] || ''),
       zipcode: String(rowData[BIO_ZIPCODE_COL - 1] || ''),
-      num_bio_entities: parseInt(rowData[BIO_NUM_ENTITIES_COL - 1], 10) || 5
+      num_bio_entities: parseInt(rowData[BIO_NUM_ENTITIES_COL - 1], 10) || 5,
+      language: rowData[BIO_LANGUAGE_COL - 1] || 'Vietnamese'
     };
 
     const { clientId, clientSecret } = getClientCredentials();

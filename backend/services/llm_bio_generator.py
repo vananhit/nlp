@@ -55,6 +55,7 @@ def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
             return state
 
 
+    language = state.get("language", "Vietnamese")
     prompt_parts = [
         "You are an expert data completion assistant.",
         "Based on the following partial information, please generate the missing fields.",
@@ -70,8 +71,8 @@ def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
         "\nInstructions:",
         "1. Generate plausible information for all 'Missing' fields.",
         "2. If the Address is provided but the Zipcode is missing, find the correct zipcode for that address.",
-        "3. If the Address is missing, generate a plausible Vietnamese address.",
-        "4. The hotline should be a Vietnamese phone number.",
+        f"3. If the Address is missing, generate a plausible address in {language}.",
+        f"4. The hotline should be a phone number appropriate for {language}.",
         "5. The username should be a single word, no spaces, no special characters, derived from the website or name.",
         "6. Return the result as a JSON object with the keys: 'name', 'address', 'hotline', 'zipcode', 'username'."
     ]
@@ -104,6 +105,7 @@ def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
     if not model:
         raise RuntimeError("Generative AI model could not be configured.")
 
+    language = state.get("language", "Vietnamese")
     prompt_parts = [
         "You are a social media marketing expert.",
         "Based on the following business profile, generate a list of 15 relevant and effective hashtags for social media.",
@@ -112,7 +114,7 @@ def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
         f"Website: {state.get('website')}",
         f"Description: {state.get('short_description', 'N/A')}",
         "\nInstructions:",
-        "1. The hashtags should be in Vietnamese but written without accent marks.",
+        f"1. The hashtags should be in {language} but written without accent marks (if applicable).",
         "2. Each hashtag must follow PascalCase format (e.g., #MonNgonVietNam, #AmThucDuongPho).",
         "3. They should be relevant to the main keyword and business.",
         "4. Create a mix of popular and niche hashtags.",
@@ -138,6 +140,9 @@ def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
 
     num_entities = state.get("num_bio_entities") or 5 # Default to 5 if not specified
 
+    language = state.get("language", "Vietnamese")
+    num_entities = state.get("num_bio_entities") or 5 # Default to 5 if not specified
+
     prompt_parts = [
         "You are an expert content writer specializing in creating compelling business biographies optimized for SEO.",
         "Based on the following business profile, write a list of short, engaging paragraphs (bio entities) that include SEO-optimized backlinks.",
@@ -153,7 +158,7 @@ def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
         "4. The anchor text must fit naturally into the sentence and vary across paragraphs.",
         "5. Each paragraph must be no longer than 200 words.",
         "6. The tone should be professional, trustworthy, and persuasive.",
-        "7. The content must be written in Vietnamese.",
+        f"7. The content must be written in {language}.",
         "8. Naturally integrate both the business name and main keyword into the content.",
         "9. Return the result as JSON with key 'bioEntities', e.g. {\"bioEntities\": [\"Paragraph 1\", \"Paragraph 2\"]}."
     ]

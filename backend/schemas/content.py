@@ -24,11 +24,13 @@ class RewriteResponse(BaseModel):
 
 class SeoSuggestionRequest(BaseModel):
     keyword: str
+    article_type: Optional[str] = None
     url: Optional[str] = None
     marketing_goal: Optional[str] = None
     target_audience: Optional[str] = None
     brand_voice: Optional[str] = None
     custom_notes: Optional[str] = None
+    language: Optional[str] = "Vietnamese"
     num_suggestions: int = 3
     output_fields: List[str] = ["title", "description", "h1", "sapo", "content"]
 
@@ -38,6 +40,7 @@ class SeoSuggestion(BaseModel):
     h1: Optional[str] = None
     sapo: Optional[str] = None
     content: Optional[str] = None
+    categories: Optional[List[str]] = None
 
 class SeoSuggestionResponse(BaseModel):
     suggestions: List[SeoSuggestion]
@@ -55,6 +58,7 @@ class BioGenerationRequest(BaseModel):
     hotline: Optional[str] = None
     main_keyword: Optional[str] = None
     short_description: Optional[str] = None
+    language: Optional[str] = "Vietnamese"
 
 class BioGenerationResponse(BaseModel):
     username: str

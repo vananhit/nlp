@@ -44,8 +44,17 @@ def analyze_text(text_content: str) -> dict:
         response = client.annotate_text(request=request)
 
         # Xử lý và cấu trúc lại phản hồi từ API thành một dictionary dễ sử dụng hơn.
+        
+        # --- Lọc bỏ các thực thể không cần thiết ---
+        excluded_entity_types = {"NUMBER", "PRICE", "DATE", "TIME"}
+        filtered_entities = [
+            {"name": entity.name, "type": entity.type_.name}
+            for entity in response.entities
+            if entity.type_.name not in excluded_entity_types
+        ]
+
         results = {
-            "entities": [{"name": entity.name, "type": entity.type_.name} for entity in response.entities],
+            "entities": filtered_entities,
             "categories": [{"name": category.name, "confidence": category.confidence} for category in response.categories],
             "sentiment": {
                 "score": response.document_sentiment.score,

@@ -29,6 +29,7 @@ class BioGraphState(TypedDict):
     hotline: Optional[str]
     main_keyword: Optional[str]
     short_description: Optional[str]
+    language: Optional[str]
     
     # Fields to be populated by the workflow
     hashtag: str

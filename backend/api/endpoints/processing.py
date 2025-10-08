@@ -172,6 +172,8 @@ async def generate_seo_suggestions(
         "keyword": request_body.keyword,
         "output_fields": request_body.output_fields,
         "num_suggestions": request_body.num_suggestions,
+        "language": request_body.language,
+        "article_type": request_body.article_type,
         # --- Lấy ngữ cảnh từ request ---
         "marketing_goal": request_body.marketing_goal,
         "target_audience": request_body.target_audience,

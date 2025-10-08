@@ -1,0 +1,1 @@
+pyinstaller --name crawl_worker --onefile --add-data "0.1.0_0;0.1.0_0" --add-data ".env;." --hidden-import="engineio.async_drivers.threading" --hidden-import="lxml" main.py
