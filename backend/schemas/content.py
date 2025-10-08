@@ -34,13 +34,17 @@ class SeoSuggestionRequest(BaseModel):
     num_suggestions: int = 3
     output_fields: List[str] = ["title", "description", "h1", "sapo", "content"]
 
+class CategoryScore(BaseModel):
+    name: str
+    score: float
+
 class SeoSuggestion(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     h1: Optional[str] = None
     sapo: Optional[str] = None
     content: Optional[str] = None
-    categories: Optional[List[str]] = None
+    categories: Optional[List[CategoryScore]] = None
 
 class SeoSuggestionResponse(BaseModel):
     suggestions: List[SeoSuggestion]

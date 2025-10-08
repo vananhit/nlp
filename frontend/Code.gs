@@ -384,9 +384,9 @@ function writeSeoOutputData(inputId, result) {
   if (result && Array.isArray(result.suggestions)) {
     const timestamp = new Date();
     result.suggestions.forEach(suggestion => {
-      // Chuyển mảng categories thành chuỗi, nếu không có thì trả về chuỗi rỗng
-      const categoriesText = (suggestion.categories && Array.isArray(suggestion.categories)) 
-        ? suggestion.categories.join(', ') 
+      // Định dạng categories: mỗi category trên một dòng theo "name - score"
+      const categoriesText = (suggestion.categories && Array.isArray(suggestion.categories))
+        ? suggestion.categories.map(cat => `${cat.name} - ${cat.score.toFixed(2)}`).join('\n')
         : '';
 
       const row = [

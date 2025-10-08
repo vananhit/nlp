@@ -150,11 +150,14 @@ async def generate_full_articles(state: GraphState) -> GraphState:
         
         # Sort categories by confidence and get top 10
         sorted_categories = sorted(
-            nlp_result.get('categories', []), 
-            key=lambda x: x.get('confidence', 0), 
+            nlp_result.get('categories', []),
+            key=lambda x: x.get('confidence', 0),
             reverse=True
         )
-        top_10_categories = [cat['name'] for cat in sorted_categories[:10]]
+        top_10_categories = [
+            {"name": cat['name'], "score": cat['confidence']}
+            for cat in sorted_categories[:10]
+        ]
 
         final_suggestions.append({
             "title": idea.get("title"),
