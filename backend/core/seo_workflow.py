@@ -86,10 +86,11 @@ async def synthesize_analysis(state: GraphState) -> GraphState:
 async def generate_initial_ideas(state: GraphState) -> GraphState:
     """
     Node: Tạo ra N bộ ý tưởng (title, meta description, sapo) ban đầu.
+    Sử dụng hàm generate_seo_ideas đã được cập nhật với structured output.
     """
     print(f"--- Node: Generating {state['num_suggestions']} initial ideas ---")
-    ideas = await asyncio.to_thread(
-        llm_seo_analyzer.generate_seo_ideas,
+    # Gọi trực tiếp hàm async mới
+    ideas = await llm_seo_analyzer.generate_seo_ideas(
         state['content_brief'],
         state['num_suggestions'],
         language=state.get('language')
@@ -102,18 +103,34 @@ async def generate_outlines(state: GraphState) -> GraphState:
     Node: Tạo dàn ý chi tiết cho từng ý tưởng.
     """
     print(f"--- Node: Generating outlines for {len(state['seo_ideas'])} ideas ---")
-    tasks = [
-        asyncio.to_thread(
-            llm_seo_analyzer.generate_seo_outline,
-            state['content_brief'],
-            idea['title'],
-            idea['meta_description'],
-            language=state.get('language')
+    tasks = []
+    for idea in state['seo_ideas']:
+        # --- BẢO VỆ CHỐNG LỖI KEYERROR ---
+        # Sử dụng .get() để truy cập an toàn, cung cấp giá trị mặc định là chuỗi rỗng
+        title = idea.get('title', '')
+        meta_description = idea.get('meta_description', '')
+
+        # Bỏ qua việc tạo outline nếu không có title
+        if not title:
+            print(f"--- Warning: Skipping outline generation for an idea with no title. ---")
+            continue
+
+        tasks.append(
+            asyncio.to_thread(
+                llm_seo_analyzer.generate_seo_outline,
+                state['content_brief'],
+                title,
+                meta_description,
+                language=state.get('language')
+            )
         )
-        for idea in state['seo_ideas']
-    ]
-    outlines = await asyncio.gather(*tasks)
-    state['outlines'] = outlines
+    
+    if tasks:
+        outlines = await asyncio.gather(*tasks)
+        state['outlines'] = outlines
+    else:
+        state['outlines'] = [] # Đảm bảo outlines là một list trống nếu không có task nào
+        
     return state
 
 async def generate_full_articles(state: GraphState) -> GraphState:
@@ -123,16 +140,29 @@ async def generate_full_articles(state: GraphState) -> GraphState:
     print(f"--- Node: Generating {len(state['outlines'])} full articles ---")
     
     # --- 1. Generate article content ---
-    generation_tasks = [
-        asyncio.to_thread(
-            llm_seo_analyzer.generate_article_from_outline,
-            state['content_brief'],
-            state['seo_ideas'][i]['title'],
-            outline,
-            language=state.get('language')
-        )
-        for i, outline in enumerate(state['outlines'])
-    ]
+    generation_tasks = []
+    valid_ideas_for_articles = [idea for idea in state['seo_ideas'] if idea.get('title')]
+
+    for i, outline in enumerate(state['outlines']):
+        # Đảm bảo chúng ta không bị lỗi index nếu số lượng outline và idea hợp lệ không khớp
+        if i < len(valid_ideas_for_articles):
+            # --- BẢO VỆ CHỐNG LỖI KEYERROR ---
+            title = valid_ideas_for_articles[i].get('title', 'Untitled')
+            generation_tasks.append(
+                asyncio.to_thread(
+                    llm_seo_analyzer.generate_article_from_outline,
+                    state['content_brief'],
+                    title,
+                    outline,
+                    language=state.get('language')
+                )
+            )
+
+    if not generation_tasks:
+        print("--- Warning: No valid outlines to generate articles from. ---")
+        state['final_suggestions'] = []
+        return state
+
     articles_content = await asyncio.gather(*generation_tasks)
     
     # --- 2. Analyze categories for each article ---

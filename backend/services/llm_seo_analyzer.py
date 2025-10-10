@@ -1,6 +1,12 @@
 import google.generativeai as genai
 import json
 from typing import List, Dict, Any
+
+# --- Langchain Imports for Structured Output ---
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
+
 from backend.services.api_key_manager import api_key_manager
 
 def analyze_competitor(content: str) -> Dict[str, Any]:
@@ -132,49 +138,52 @@ def synthesize_insights(
         print(f"Error during insight synthesis with LLM: {e}")
         return f"Error: Failed to synthesize insights. Details: {e}"
 
-def generate_seo_ideas(brief: str, num_suggestions: int, language: str | None = "Vietnamese") -> List[Dict[str, str]]:
+# --- Pydantic Models for Structured Output ---
+class SeoIdea(BaseModel):
+    """Represents a single SEO content idea."""
+    title: str = Field(description="The unique and compelling title for the article.")
+    meta_description: str = Field(description="The SEO-optimized meta description.")
+    sapo: str = Field(description="The engaging opening paragraph (sapo).")
+
+class SeoIdeasResponse(BaseModel):
+    """A list of diverse SEO ideas."""
+    ideas: List[SeoIdea] = Field(description="A list of diverse SEO ideas.")
+
+
+async def generate_seo_ideas(brief: str, num_suggestions: int, language: str | None = "Vietnamese") -> List[Dict[str, str]]:
     """
-    Từ Content Brief, tạo ra N bộ ý tưởng (Title, Meta Description, Sapo) đa dạng.
+    Từ Content Brief, tạo ra N bộ ý tưởng (Title, Meta Description, Sapo) đa dạng bằng cách sử dụng structured output.
     """
     api_key = api_key_manager.get_next_key()
     if not api_key:
         return [{"error": "No available API keys."}]
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-pro')
-
-    prompt = f"""
-    You are a creative SEO strategist. Based on the following Content Brief, generate {num_suggestions} diverse and compelling ideas for an article. Each idea must include a unique title, meta description, and an engaging opening paragraph (sapo).
-
-    Content Brief:
-    ---
-    {brief}
-    ---
-
-    Your response MUST be a single, valid JSON array, where each element is an object containing "title", "meta_description", and "sapo". Ensure the ideas are distinct from each other.
-    The content of "title", "meta_description", and "sapo" must be in {language}.
-
-    Example JSON structure:
-    [
-      {{
-        "title": "Unique Title 1",
-        "meta_description": "Compelling meta description 1.",
-        "sapo": "Engaging opening paragraph 1."
-      }},
-      {{
-        "title": "Unique Title 2",
-        "meta_description": "Compelling meta description 2.",
-        "sapo": "Engaging opening paragraph 2."
-      }}
-    ]
-    """
     try:
-        response = model.generate_content(prompt)
-        cleaned_text = response.text.strip().replace("```json", "").replace("```", "").strip()
-        return json.loads(cleaned_text)
+        # 1. Khởi tạo model và bind với structured output
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=api_key)
+        structured_llm = llm.with_structured_output(SeoIdeasResponse)
+
+        # 2. Tạo prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a creative SEO strategist. Your task is to generate diverse and compelling article ideas based on a content brief. The language for the content must be {language}."),
+            ("human", "Please generate {num_suggestions} ideas based on the following Content Brief:\n\n---BEGIN CONTENT BRIEF---\n{brief}\n---END CONTENT BRIEF---")
+        ])
+
+        # 3. Tạo chain và thực thi
+        chain = prompt | structured_llm
+        response_model = await chain.ainvoke({
+            "language": language,
+            "num_suggestions": num_suggestions,
+            "brief": brief
+        })
+
+        # 4. Chuyển đổi Pydantic model thành list of dicts để tương thích với workflow hiện tại
+        return [idea.dict() for idea in response_model.ideas]
+
     except Exception as e:
-        print(f"Error during SEO idea generation with LLM: {e}")
-        return [{"error": f"Failed to generate ideas. Raw response: {response.text if 'response' in locals() else 'N/A'}"}]
+        print(f"Error during structured SEO idea generation with LLM: {e}")
+        # Trả về lỗi theo format cũ để workflow có thể xử lý
+        return [{"error": f"Failed to generate ideas with structured output. Details: {e}"}]
 
 def generate_seo_outline(brief: str, title: str, meta_description: str, language: str | None = "Vietnamese") -> str:
     """
