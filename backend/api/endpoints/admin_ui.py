@@ -17,6 +17,7 @@ from backend.core.config import settings
 from datetime import timedelta, datetime
 from jose import JWTError, jwt
 import json
+import asyncio
 
 # --- Setup ---
 router = APIRouter()
@@ -218,25 +219,31 @@ async def validate_key(request: Request, new_key: str = Form(...), user: str = D
         print(f"An unexpected error occurred during key validation: {e}")
         return JSONResponse({"valid": False, "error": "Đã xảy ra lỗi không mong muốn khi xác thực key."})
 
+# --- Helper function for bulk validation (sync) ---
+def _validate_key_sync(key: str):
+    """Synchronous function to validate a single API key."""
+    try:
+        genai.configure(api_key=key)
+        # Lightweight API call to validate
+        [m for m in genai.list_models()]
+        return key, True
+    except Exception:
+        return key, False
+
 @router.post("/admin/validate-keys-bulk")
 async def validate_keys_bulk(request: Request, keys: list[str] = Body(..., embed=True), user: str = Depends(get_current_admin)):
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    valid_keys = []
-    invalid_keys = []
+    # Create tasks to run the synchronous validation function in a thread pool
+    tasks = [asyncio.to_thread(_validate_key_sync, key.strip()) for key in keys if key.strip()]
+    
+    # Wait for all validation tasks to complete
+    results = await asyncio.gather(*tasks)
 
-    for key in keys:
-        key = key.strip()
-        if not key:
-            continue
-        try:
-            genai.configure(api_key=key)
-            # Lightweight API call to validate
-            [m for m in genai.list_models()]
-            valid_keys.append(key)
-        except Exception:
-            invalid_keys.append(key)
+    # Process the results
+    valid_keys = [key for key, is_valid in results if is_valid]
+    invalid_keys = [key for key, is_valid in results if not is_valid]
             
     return JSONResponse({"valid_keys": valid_keys, "invalid_keys": invalid_keys})
 
