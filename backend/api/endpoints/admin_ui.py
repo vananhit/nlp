@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File, Query, Body
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
@@ -8,6 +8,7 @@ from backend.database import get_db
 from backend.models.usage_log import UsageLog
 from backend.models.admin_login_history import AdminLoginHistory
 from backend.services.api_key_manager import api_key_manager
+from backend.services.otp_manager import otp_manager
 from user_agents import parse
 from backend.services.gcp_sa_manager import gcp_sa_manager
 from backend.services.client_app_manager import client_app_manager
@@ -114,13 +115,23 @@ async def dashboard_redirect(user: str = Depends(get_current_admin)):
         return RedirectResponse(url="/api/admin/login")
     return RedirectResponse(url="/api/admin/gemini-keys")
 
+def mask_api_key(key: str) -> str:
+    """Masks the API key, showing only the first 4 and last 4 characters."""
+    if len(key) > 8:
+        return f"{key[:4]}{len(key)*'*'}{key[-4:]}"
+    return key
+
 @router.get("/admin/gemini-keys", response_class=HTMLResponse)
 async def manage_gemini_keys(request: Request, user: str = Depends(get_current_admin)):
     if not user:
         return RedirectResponse(url="/api/admin/login")
     
-    keys = api_key_manager.get_all_keys()
-    return templates.TemplateResponse("admin/manage_gemini.html", {"request": request, "keys": keys})
+    keys_data = api_key_manager.get_all_keys()
+    # Add a masked version of the key for display
+    for key_info in keys_data:
+        key_info['masked_key'] = mask_api_key(key_info['key'])
+        
+    return templates.TemplateResponse("admin/manage_gemini.html", {"request": request, "keys": keys_data})
 
 @router.get("/admin/gcp-accounts", response_class=HTMLResponse)
 async def manage_gcp_accounts(request: Request, user: str = Depends(get_current_admin)):
@@ -163,6 +174,20 @@ async def add_key(request: Request, new_key: str = Form(...), user: str = Depend
     api_key_manager.add_key(new_key.strip(), status="valid")
     return RedirectResponse(url="/api/admin/gemini-keys", status_code=303)
 
+@router.post("/admin/add-keys-bulk")
+async def add_keys_bulk(request: Request, keys: list[str] = Body(..., embed=True), user: str = Depends(get_current_admin)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    added_count = 0
+    for key in keys:
+        # The add_key method should ideally prevent duplicates.
+        # Assuming it does, or we add a check here.
+        api_key_manager.add_key(key.strip(), status="valid")
+        added_count += 1
+        
+    return JSONResponse({"success": True, "message": f"{added_count} keys added successfully."})
+
 @router.post("/admin/delete-key")
 async def delete_key(request: Request, key_to_delete: str = Form(...), user: str = Depends(get_current_admin)):
     if not user:
@@ -192,6 +217,45 @@ async def validate_key(request: Request, new_key: str = Form(...), user: str = D
         # Bắt các lỗi khác có thể xảy ra (ví dụ: lỗi mạng)
         print(f"An unexpected error occurred during key validation: {e}")
         return JSONResponse({"valid": False, "error": "Đã xảy ra lỗi không mong muốn khi xác thực key."})
+
+@router.post("/admin/validate-keys-bulk")
+async def validate_keys_bulk(request: Request, keys: list[str] = Body(..., embed=True), user: str = Depends(get_current_admin)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    valid_keys = []
+    invalid_keys = []
+
+    for key in keys:
+        key = key.strip()
+        if not key:
+            continue
+        try:
+            genai.configure(api_key=key)
+            # Lightweight API call to validate
+            [m for m in genai.list_models()]
+            valid_keys.append(key)
+        except Exception:
+            invalid_keys.append(key)
+            
+    return JSONResponse({"valid_keys": valid_keys, "invalid_keys": invalid_keys})
+
+@router.post("/admin/export-keys")
+async def export_keys(request: Request, otp: str = Form(...), user: str = Depends(get_current_admin)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not otp_manager.verify(otp):
+        raise HTTPException(status_code=401, detail="Invalid OTP")
+
+    keys = api_key_manager.get_all_keys()
+    keys_text = "\n".join([key_info['key'] for key_info in keys])
+    
+    return Response(
+        content=keys_text,
+        media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=gemini_api_keys.txt"}
+    )
 
 @router.post("/admin/check-key-status")
 async def check_key_status(request: Request, key_to_check: str = Form(...), user: str = Depends(get_current_admin)):

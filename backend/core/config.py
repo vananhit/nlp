@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     # Admin
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
+    # Generate a secure key using: import pyotp; pyotp.random_base32()
+    TOTP_SECRET_KEY: str
 
     # Worker
     WORKER_CLIENT_ID: str 

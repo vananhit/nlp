@@ -23,12 +23,45 @@
     .actions .btn, .actions form {
         margin-bottom: 0;
     }
+    #bulk-key-results {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .key-list {
+        padding-left: 0;
+        list-style-type: none;
+    }
+    .key-list li {
+        font-family: monospace;
+        padding: 5px;
+        border-radius: 3px;
+        margin-bottom: 5px;
+        word-break: break-all;
+    }
+    .key-list-valid li {
+        background-color: #e9f7ef;
+        border-left: 3px solid #28a745;
+    }
+    .key-list-invalid li {
+        background-color: #fce8e6;
+        border-left: 3px solid #dc3545;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="h3 mb-4">Quản lý Khóa API Gemini</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 m-0">Quản lý Khóa API Gemini</h1>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#exportKeysModal">
+                <i class="fa-solid fa-download me-2"></i>Xuất khẩu
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBulkKeysModal">
+                <i class="fa-solid fa-plus me-2"></i>Thêm
+            </button>
+        </div>
+    </div>
 
     <!-- Data Table -->
     <div class="card shadow-sm mb-4">
@@ -47,7 +80,7 @@
                 <tbody>
                     {% for key_info in keys %}
                     <tr data-key-row="{{ key_info.key }}">
-                        <td class="key-text">{{ key_info.key }}</td>
+                        <td class="key-text">{{ key_info.masked_key }}</td>
                         <td>
                             <span class="status status-{{ key_info.status }}" id="status-{{ key_info.key }}">{{ key_info.status }}</span>
                         </td>
@@ -66,19 +99,83 @@
             </table>
         </div>
     </div>
+</div>
 
-    <!-- Add Key Form -->
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h6 class="m-0 font-weight-bold text-primary"><i class="fa-solid fa-plus me-2"></i>Thêm khóa API mới</h6>
+<!-- Export Keys Modal -->
+<div class="modal fade" id="exportKeysModal" tabindex="-1" aria-labelledby="exportKeysModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportKeysModalLabel">Xác nhận xuất khẩu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Vui lòng nhập mã OTP để tải xuống danh sách khóa API.</p>
+                <form id="export-keys-form">
+                    <div class="mb-3">
+                        <label for="otp-input" class="form-label">Mã OTP</label>
+                        <input type="text" class="form-control" id="otp-input" name="otp" required maxlength="6" placeholder="Nhập 6 chữ số">
+                    </div>
+                    <div id="export-error" class="alert alert-danger" style="display: none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="export-confirm-btn">Xác nhận</button>
+            </div>
         </div>
-        <div class="card-body">
-            <form action="/api/admin/add-key" method="post" id="add-key-form">
-                <div class="input-group">
-                    <input type="text" class="form-control" name="new_key" id="new-key-input" placeholder="Nhập khóa API Gemini mới..." required>
-                    <button type="submit" class="btn btn-primary" id="add-key-btn">Thêm khóa</button>
+    </div>
+</div>
+
+
+<!-- Add Bulk Keys Modal -->
+<div class="modal fade" id="addBulkKeysModal" tabindex="-1" aria-labelledby="addBulkKeysModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addBulkKeysModalLabel">Thêm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: Input Keys -->
+                <div id="modal-step-1">
+                    <h6>Bước 1/3: Nhập danh sách khóa</h6>
+                    <p class="text-muted">Dán danh sách các khóa API vào ô bên dưới, mỗi khóa một dòng.</p>
+                    <textarea class="form-control" id="bulk-keys-input" rows="10" placeholder="AIzaSy...&#10;AIzaSy...&#10;AIzaSy..."></textarea>
                 </div>
-            </form>
+
+                <!-- Step 2: Validation Result -->
+                <div id="modal-step-2" style="display: none;">
+                    <h6>Bước 2/3: Kết quả kiểm tra</h6>
+                    <p class="text-muted">Đây là kết quả sau khi kiểm tra từng khóa API. Chỉ những khóa hợp lệ mới được thêm vào hệ thống.</p>
+                    <div id="bulk-key-results" class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">Hợp lệ (<span id="valid-keys-count">0</span>)</h6>
+                            <ul id="valid-keys-list" class="key-list key-list-valid"></ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger">Không hợp lệ (<span id="invalid-keys-count">0</span>)</h6>
+                            <ul id="invalid-keys-list" class="key-list key-list-invalid"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Confirmation -->
+                <div id="modal-step-3" style="display: none;">
+                    <h6>Bước 3/3: Xác nhận</h6>
+                    <p>Bạn có chắc chắn muốn thêm <strong id="confirm-key-count">0</strong> khóa API hợp lệ vào hệ thống không?</p>
+                    <div id="add-keys-error" class="alert alert-danger" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-secondary" id="modal-back-btn" style="display: none;">Quay lại</button>
+                <button type="button" class="btn btn-primary" id="modal-next-btn">Tiếp theo</button>
+                <button type="button" class="btn btn-primary" id="modal-save-btn" style="display: none;">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                    Lưu
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -94,47 +191,194 @@
 $(document).ready(function() {
     // --- Initialize DataTables ---
     $('#geminiKeysTable').DataTable({
-        "order": [[ 0, "asc" ]], // Sắp xếp theo Khóa API
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json"
-        }
+        "order": [[ 0, "asc" ]],
+        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json" }
     });
 
-    // --- Add Key Form Submission (with validation) ---
-    $('#add-key-form').on('submit', async function(event) {
-        event.preventDefault();
-        const form = this;
-        const keyInput = $('#new-key-input');
-        const submitButton = $('#add-key-btn');
-        const newKey = keyInput.val().trim();
+    // --- Export Keys Modal Logic ---
+    const exportModal = new bootstrap.Modal(document.getElementById('exportKeysModal'));
+    const exportForm = $('#export-keys-form');
+    const exportError = $('#export-error');
+    const otpInput = $('#otp-input');
 
-        if (!newKey) {
-            alert('Vui lòng nhập khóa API.');
+    $('#export-confirm-btn').on('click', async function() {
+        const button = $(this);
+        const otp = otpInput.val();
+
+        if (!otp || otp.length !== 6) {
+            exportError.text('Vui lòng nhập mã OTP gồm 6 chữ số.').show();
             return;
         }
 
-        submitButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xác thực...');
+        button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...');
+        exportError.hide();
 
         try {
             const formData = new FormData();
-            formData.append('new_key', newKey);
+            formData.append('otp', otp);
 
-            const response = await fetch('/api/admin/validate-key', {
+            const response = await fetch('/api/admin/export-keys', {
                 method: 'POST',
-                body: formData,
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'gemini_api_keys.txt';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                exportModal.hide();
+            } else {
+                const errorResult = await response.json();
+                exportError.text(errorResult.detail || 'Mã OTP không hợp lệ.').show();
+            }
+        } catch (error) {
+            console.error('Lỗi khi xuất khóa:', error);
+            exportError.text('Đã xảy ra lỗi không mong muốn.').show();
+        } finally {
+            button.prop('disabled', false).text('Xác nhận');
+        }
+    });
+    
+    $('#exportKeysModal').on('hidden.bs.modal', function () {
+        exportForm[0].reset();
+        exportError.hide();
+    });
+
+
+    // --- Bulk Add Keys Modal Logic ---
+    const modal = new bootstrap.Modal(document.getElementById('addBulkKeysModal'));
+    const modalEl = $('#addBulkKeysModal');
+    const step1 = $('#modal-step-1');
+    const step2 = $('#modal-step-2');
+    const step3 = $('#modal-step-3');
+    const backBtn = $('#modal-back-btn');
+    const nextBtn = $('#modal-next-btn');
+    const saveBtn = $('#modal-save-btn');
+    const modalTitle = $('#addBulkKeysModalLabel');
+
+    let validKeysToSave = [];
+
+    function resetModal() {
+        step1.show();
+        step2.hide();
+        step3.hide();
+        backBtn.hide();
+        saveBtn.hide();
+        nextBtn.show().prop('disabled', false).text('Tiếp theo');
+        saveBtn.find('.spinner-border').hide();
+        modalTitle.text('Thêm nhiều khóa API');
+        $('#bulk-keys-input').val('');
+        $('#valid-keys-list').empty();
+        $('#invalid-keys-list').empty();
+        $('#add-keys-error').hide();
+        validKeysToSave = [];
+    }
+
+    modalEl.on('hidden.bs.modal', resetModal);
+
+    nextBtn.on('click', async function() {
+        const currentStep = $('.modal-body > div:visible').attr('id');
+        
+        if (currentStep === 'modal-step-1') {
+            const keysRaw = $('#bulk-keys-input').val();
+            const keys = keysRaw.split('\n').map(k => k.trim()).filter(k => k);
+
+            if (keys.length === 0) {
+                alert('Vui lòng nhập ít nhất một khóa API.');
+                return;
+            }
+
+            nextBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang kiểm tra...');
+
+            try {
+                const response = await fetch('/api/admin/validate-keys-bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: keys })
+                });
+                const result = await response.json();
+
+                if (!response.ok) throw new Error(result.detail || 'Lỗi không xác định từ máy chủ.');
+
+                validKeysToSave = result.valid_keys || [];
+                const invalidKeys = result.invalid_keys || [];
+
+                $('#valid-keys-count').text(validKeysToSave.length);
+                $('#invalid-keys-count').text(invalidKeys.length);
+                
+                $('#valid-keys-list').html(validKeysToSave.map(k => `<li>${k}</li>`).join(''));
+                $('#invalid-keys-list').html(invalidKeys.map(k => `<li>${k}</li>`).join(''));
+
+                step1.hide();
+                step2.show();
+                backBtn.show();
+                modalTitle.text('Kết quả kiểm tra');
+                if (validKeysToSave.length === 0) {
+                    nextBtn.hide();
+                }
+            } catch (error) {
+                console.error('Lỗi khi xác thực khóa:', error);
+                alert('Đã xảy ra lỗi khi xác thực các khóa API. Vui lòng thử lại.');
+            } finally {
+                nextBtn.prop('disabled', false).html('Tiếp theo');
+            }
+        } else if (currentStep === 'modal-step-2') {
+            $('#confirm-key-count').text(validKeysToSave.length);
+            step2.hide();
+            step3.show();
+            nextBtn.hide();
+            saveBtn.show();
+            modalTitle.text('Xác nhận lưu');
+        }
+    });
+
+    backBtn.on('click', function() {
+        const currentStep = $('.modal-body > div:visible').attr('id');
+        if (currentStep === 'modal-step-2') {
+            step2.hide();
+            step1.show();
+            backBtn.hide();
+            nextBtn.show();
+            modalTitle.text('Thêm nhiều khóa API');
+        } else if (currentStep === 'modal-step-3') {
+            step3.hide();
+            step2.show();
+            saveBtn.hide();
+            nextBtn.show();
+            modalTitle.text('Kết quả kiểm tra');
+        }
+    });
+
+    saveBtn.on('click', async function() {
+        saveBtn.prop('disabled', true).find('.spinner-border').show();
+        $('#add-keys-error').hide();
+
+        try {
+            const response = await fetch('/api/admin/add-keys-bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keys: validKeysToSave })
             });
             const result = await response.json();
 
-            if (response.ok && result.valid) {
-                form.submit(); // Submit the original form to add the key
-            } else {
-                alert(result.error || 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.');
-                submitButton.prop('disabled', false).text('Thêm khóa');
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Không thể lưu các khóa API.');
             }
+            
+            modal.hide();
+            location.reload();
+
         } catch (error) {
-            console.error('Lỗi trong quá trình xác thực khóa:', error);
-            alert('Đã xảy ra lỗi khi cố gắng xác thực khóa.');
-            submitButton.prop('disabled', false).text('Thêm khóa');
+            console.error('Lỗi khi lưu khóa:', error);
+            $('#add-keys-error').text(error.message).show();
+            saveBtn.prop('disabled', false).find('.spinner-border').hide();
         }
     });
 

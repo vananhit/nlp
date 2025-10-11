@@ -9,4 +9,5 @@ services:
       - "6969:8000"
     env_file:
       - ./backend/.env
-   
+    volumes:
+      - ./backend/sql_app.db:/app/backend/sql_app.db
