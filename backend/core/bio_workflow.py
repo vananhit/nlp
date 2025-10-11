@@ -41,10 +41,10 @@ class BioGraphState(TypedDict):
 async def generate_basic_info(state: BioGraphState) -> BioGraphState:
     """
     Node to generate or complete the basic information.
-    This runs the LLM call in a separate thread to avoid blocking.
+    Calls the async version of the service function.
     """
     # LangGraph passes the entire state dictionary to the node.
-    updated_info = llm_bio_generator.generate_basic_info(state)
+    updated_info = await llm_bio_generator.generate_basic_info(state)
     
     # Merge the updated info back into the state
     state.update(updated_info)
@@ -54,7 +54,7 @@ async def generate_hashtags(state: BioGraphState) -> BioGraphState:
     """
     Node to generate hashtags based on the completed basic info.
     """
-    updated_state = llm_bio_generator.generate_hashtags(state)
+    updated_state = await llm_bio_generator.generate_hashtags(state)
     state.update(updated_state)
     return state
 
@@ -62,6 +62,6 @@ async def generate_bio_entities(state: BioGraphState) -> BioGraphState:
     """
     Node to generate the final bio entities.
     """
-    updated_state = llm_bio_generator.generate_bio_entities(state)
+    updated_state = await llm_bio_generator.generate_bio_entities(state)
     state.update(updated_state)
     return state

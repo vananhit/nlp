@@ -1,8 +1,9 @@
 import google.generativeai as genai
 import json
 from backend.services.api_key_manager import api_key_manager
+import asyncio
 
-def analyze_context_with_llm(content: str, main_topic: str, search_intent: str) -> list[str]:
+async def analyze_context_with_llm(content: str, main_topic: str, search_intent: str) -> list[str]:
     """
     Sử dụng LLM để phân tích ngữ nghĩa và đối chiếu nội dung với chủ đề và ý định.
     Hàm này sẽ tạo ra các "Actionable Insights" dựa trên phân tích của LLM.
@@ -35,14 +36,11 @@ def analyze_context_with_llm(content: str, main_topic: str, search_intent: str) 
     print("----------------------------------------------")
 
     # --- Sử dụng ApiKeyManager để lấy key và cấu hình ---
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return ["Error: No available API keys to perform the analysis."]
-    
     try:
+        api_key = await api_key_manager.get_next_key_async()
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.5-pro')
-        response = model.generate_content(final_prompt)
+        response = await model.generate_content_async(final_prompt)
         
         # Cố gắng parse chuỗi JSON từ phản hồi.
         # LLM có thể trả về chuỗi JSON nằm trong ```json ... ```, nên cần làm sạch.
@@ -173,7 +171,7 @@ def _generate_category_instructions(nlp_analysis: dict, search_intent: str = Non
     return instructions
 
 
-def rewrite_content_with_gemini(enriched_data: dict, content: str) -> str:
+async def rewrite_content_with_gemini(enriched_data: dict, content: str) -> str:
     """
     Sử dụng Google Gemini để viết lại nội dung dựa trên dữ liệu phân tích đã được làm giàu.
     Đây là "Động cơ Tái cấu trúc" chính.
@@ -219,16 +217,13 @@ def rewrite_content_with_gemini(enriched_data: dict, content: str) -> str:
     print("-----------------------------")
 
     # --- 2. Gọi API của Gemini với key được quản lý ---
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return "Error: No available API keys to rewrite the content."
-
     try:
+        api_key = await api_key_manager.get_next_key_async()
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.5-pro')
-        response = model.generate_content(final_prompt)
+        response = await model.generate_content_async(final_prompt)
         return response.text
     except Exception as e:
         print(f"An error occurred with the Gemini API: {e}")
         # Trả về thông báo lỗi thay vì làm sập ứng dụng.
-        return f"Error: Could not rewrite content due to an issue with the generative model. Details: {e}"
+        raise e # Re-raise the exception to be handled by the endpoint

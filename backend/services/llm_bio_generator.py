@@ -2,19 +2,14 @@ from typing import List, Dict, Any, Optional
 import google.generativeai as genai
 from backend.services.api_key_manager import api_key_manager
 import json
+import asyncio
 
-def get_model():
+async def get_model():
     """
-    Configures and returns a new instance of the GenerativeModel.
-    This ensures a new API key is used for each set of operations.
+    Configures and returns a new instance of the GenerativeModel asynchronously.
     """
     try:
-        api_key = api_key_manager.get_next_key()
-        if not api_key:
-            raise ValueError("Gemini API key not found or no valid keys available.")
-        
-        # Each call to genai.configure might not be necessary if the key is passed directly,
-        # but it's safer to ensure the environment is set for the current key.
+        api_key = await api_key_manager.get_next_key_async()
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.5-pro')
         return model
@@ -22,12 +17,12 @@ def get_model():
         print(f"Error configuring Generative AI: {e}")
         return None
 
-def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
+async def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Generates missing basic information using an LLM.
+    Generates missing basic information using an LLM. (Async version)
     If address is provided, it also generates the corresponding zipcode.
     """
-    model = get_model()
+    model = await get_model()
     if not model:
         raise RuntimeError("Generative AI model could not be configured.")
 
@@ -80,7 +75,7 @@ def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
     prompt = "\n".join(prompt_parts)
 
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         generated_data = json.loads(response.text.strip())
         
         # Update state with generated data, only if the original was missing
@@ -99,9 +94,9 @@ def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return state
 
-def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Generates a string of relevant hashtags using an LLM."""
-    model = get_model()
+async def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Generates a string of relevant hashtags using an LLM. (Async version)"""
+    model = await get_model()
     if not model:
         raise RuntimeError("Generative AI model could not be configured.")
 
@@ -124,7 +119,7 @@ def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
     prompt = "\n".join(prompt_parts)
 
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         state["hashtag"] = response.text.strip()
     except Exception as e:
         print(f"Error during LLM call for hashtags: {e}")
@@ -132,9 +127,9 @@ def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return state
 
-def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Generates a list of bio entity strings using an LLM."""
-    model = get_model()
+async def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Generates a list of bio entity strings using an LLM. (Async version)"""
+    model = await get_model()
     if not model:
         raise RuntimeError("Generative AI model could not be configured.")
 
@@ -166,7 +161,7 @@ def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
     prompt = "\n".join(prompt_parts)
 
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         # Clean the response text before parsing
         cleaned_text = response.text.strip()
         if cleaned_text.startswith("```json"):
@@ -178,6 +173,5 @@ def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
         state["bioEntities"] = data.get("bioEntities", [])
     except Exception as e:
         print(f"Error during LLM call for bio entities: {e}")
-        state["bioEntities"] = [f"This is a sample bio for {state.get('name', 'the company')} based on the keyword {state.get('keyword', 'general')}." for _ in range(num_entities)]
 
     return state

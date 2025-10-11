@@ -72,19 +72,29 @@ def process_content_sync(
         "cross_reference_notes": []
     }
 
-    # --- Logic Đối chiếu Nâng cao bằng LLM ---
-    llm_analysis_notes = llm_rewriter.analyze_context_with_llm(
-        content=request_body.content,
-        main_topic=request_body.main_topic,
-        search_intent=request_body.search_intent
-    )
-    enriched_data["cross_reference_notes"].extend(llm_analysis_notes)
+    # --- Logic Đối chiếu Nâng cao bằng LLM (Async Wrapper) ---
+    async def async_tasks():
+        llm_analysis_task = llm_rewriter.analyze_context_with_llm(
+            content=request_body.content,
+            main_topic=request_body.main_topic,
+            search_intent=request_body.search_intent
+        )
+        
+        # For now, we run this sequentially. Can be run in parallel if needed.
+        llm_analysis_notes = await llm_analysis_task
+        enriched_data["cross_reference_notes"].extend(llm_analysis_notes)
 
-    # --- GIAI ĐOẠN 2: Động cơ Tái cấu trúc ---
-    rewritten_content = llm_rewriter.rewrite_content_with_gemini(
-        enriched_data=enriched_data,
-        content=request_body.content
-    )
+        # --- GIAI ĐOẠN 2: Động cơ Tái cấu trúc ---
+        rewritten_content = await llm_rewriter.rewrite_content_with_gemini(
+            enriched_data=enriched_data,
+            content=request_body.content
+        )
+        return rewritten_content
+
+    # Since process_content_sync is a sync function run in a threadpool,
+    # we can create a new event loop to run our async functions.
+    import asyncio
+    rewritten_content = asyncio.run(async_tasks())
 
     # Trả về kết quả cho client theo cấu trúc của schema RewriteResponse.
     return RewriteResponse(

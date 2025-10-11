@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import json
 from typing import List, Dict, Any
+import asyncio
 
 # --- Langchain Imports for Structured Output ---
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -9,16 +10,15 @@ from pydantic import BaseModel, Field
 
 from backend.services.api_key_manager import api_key_manager
 
-def analyze_competitor(content: str) -> Dict[str, Any]:
+async def analyze_competitor(content: str) -> Dict[str, Any]:
     """
-    Phân tích nội dung của đối thủ cạnh tranh bằng LLM để trích xuất các insight SEO.
+    Phân tích nội dung của đối thủ cạnh tranh bằng LLM để trích xuất các insight SEO. (Async version)
     """
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return {"error": "No available API keys."}
+    api_key = await api_key_manager.get_next_key_async()
+    # No need to check for api_key here, as get_next_key_async will raise an exception if none are available.
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-pro')
+    model = genai.GenerativeModel('gemini-2.5-pro') # Using 1.5 Pro for better JSON handling
 
     prompt = f"""
     You are an expert SEO analyst. Analyze the following article content and provide a structured analysis in JSON format.
@@ -49,15 +49,17 @@ def analyze_competitor(content: str) -> Dict[str, Any]:
     """
 
     try:
-        response = model.generate_content(prompt)
+        # Use generate_content_async for non-blocking call
+        response = await model.generate_content_async(prompt)
         # Clean the response to ensure it's valid JSON
         cleaned_text = response.text.strip().replace("```json", "").replace("```", "").strip()
         return json.loads(cleaned_text)
     except Exception as e:
         print(f"Error during competitor analysis with LLM: {e}")
-        return {"error": f"Failed to analyze competitor content. Raw response: {response.text if 'response' in locals() else 'N/A'}"}
+        # It's better to raise the exception to be handled by the workflow
+        raise e
 
-def synthesize_insights(
+async def synthesize_insights(
     analyses: List[Dict[str, Any]],
     marketing_goal: str | None = None,
     target_audience: str | None = None,
@@ -67,11 +69,9 @@ def synthesize_insights(
     article_type: str | None = None
 ) -> str:
     """
-    Tổng hợp kết quả phân tích từ nhiều đối thủ và ngữ cảnh tùy chỉnh để tạo ra một 'Content Brief'.
+    Tổng hợp kết quả phân tích từ nhiều đối thủ và ngữ cảnh tùy chỉnh để tạo ra một 'Content Brief'. (Async version)
     """
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return "Error: No available API keys."
+    api_key = await api_key_manager.get_next_key_async()
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.5-pro')
@@ -132,11 +132,11 @@ def synthesize_insights(
     """
 
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         return response.text
     except Exception as e:
         print(f"Error during insight synthesis with LLM: {e}")
-        return f"Error: Failed to synthesize insights. Details: {e}"
+        raise e
 
 # --- Pydantic Models for Structured Output ---
 class SeoIdea(BaseModel):
@@ -154,11 +154,9 @@ async def generate_seo_ideas(brief: str, num_suggestions: int, language: str | N
     """
     Từ Content Brief, tạo ra N bộ ý tưởng (Title, Meta Description, Sapo) đa dạng bằng cách sử dụng structured output.
     """
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return [{"error": "No available API keys."}]
-
     try:
+        api_key = await api_key_manager.get_next_key_async()
+
         # 1. Khởi tạo model và bind với structured output
         llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=api_key)
         structured_llm = llm.with_structured_output(SeoIdeasResponse)
@@ -185,13 +183,11 @@ async def generate_seo_ideas(brief: str, num_suggestions: int, language: str | N
         # Trả về lỗi theo format cũ để workflow có thể xử lý
         return [{"error": f"Failed to generate ideas with structured output. Details: {e}"}]
 
-def generate_seo_outline(brief: str, title: str, meta_description: str, language: str | None = "Vietnamese") -> str:
+async def generate_seo_outline(brief: str, title: str, meta_description: str, language: str | None = "Vietnamese") -> str:
     """
-    Tạo ra một dàn ý chuẩn SEO (outline) chi tiết cho bài viết dựa trên brief và một ý tưởng cụ thể.
+    Tạo ra một dàn ý chuẩn SEO (outline) chi tiết cho bài viết dựa trên brief và một ý tưởng cụ thể. (Async version)
     """
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return "Error: No available API keys."
+    api_key = await api_key_manager.get_next_key_async()
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.5-pro')
@@ -219,19 +215,17 @@ def generate_seo_outline(brief: str, title: str, meta_description: str, language
     Provide the response as a well-formatted Markdown string.
     """
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         return response.text
     except Exception as e:
         print(f"Error during outline generation with LLM: {e}")
-        return f"Error: Failed to generate outline. Details: {e}"
+        raise e
 
-def generate_article_from_outline(brief: str, title: str, outline: str, language: str | None = "Vietnamese") -> str:
+async def generate_article_from_outline(brief: str, title: str, outline: str, language: str | None = "Vietnamese") -> str:
     """
-    Viết một bài viết hoàn chỉnh dựa trên brief, title, và một dàn ý chi tiết.
+    Viết một bài viết hoàn chỉnh dựa trên brief, title, và một dàn ý chi tiết. (Async version)
     """
-    api_key = api_key_manager.get_next_key()
-    if not api_key:
-        return "Error: No available API keys."
+    api_key = await api_key_manager.get_next_key_async()
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.5-pro')
@@ -266,8 +260,8 @@ def generate_article_from_outline(brief: str, title: str, outline: str, language
     -  The output must be **the final publish-ready article**, suitable for direct upload to a website.
     """
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         return response.text
     except Exception as e:
         print(f"Error during article generation with LLM: {e}")
-        return f"Error: Failed to generate article. Details: {e}"
+        raise e

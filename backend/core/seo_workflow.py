@@ -48,10 +48,11 @@ async def analyze_articles(state: GraphState) -> GraphState:
             continue
         
         # Chạy song song GCP NLP và LLM Analyzer
-        gcp_result, llm_result = await asyncio.gather(
-            asyncio.to_thread(gcp_nlp.analyze_text, article['content']),
-            asyncio.to_thread(llm_seo_analyzer.analyze_competitor, article['content'])
-        )
+        # gcp_nlp.analyze_text vẫn là sync, llm_seo_analyzer.analyze_competitor bây giờ là async
+        gcp_task = asyncio.to_thread(gcp_nlp.analyze_text, article['content'])
+        llm_task = llm_seo_analyzer.analyze_competitor(article['content'])
+        
+        gcp_result, llm_result = await asyncio.gather(gcp_task, llm_task)
         
         combined_analysis = {
             "link": article['link'],
@@ -68,10 +69,9 @@ async def synthesize_analysis(state: GraphState) -> GraphState:
     Node: Tổng hợp các phân tích thành một Content Brief duy nhất.
     """
     print("--- Node: Synthesizing analysis into a content brief ---")
-    # Truyền thêm ngữ cảnh vào hàm tổng hợp
-    brief = await asyncio.to_thread(
-        llm_seo_analyzer.synthesize_insights,
-        state['analysis_results'],
+    # Gọi trực tiếp hàm async mới
+    brief = await llm_seo_analyzer.synthesize_insights(
+        analyses=state['analysis_results'],
         marketing_goal=state.get('marketing_goal'),
         target_audience=state.get('target_audience'),
         brand_voice=state.get('brand_voice'),
@@ -115,12 +115,12 @@ async def generate_outlines(state: GraphState) -> GraphState:
             print(f"--- Warning: Skipping outline generation for an idea with no title. ---")
             continue
 
+        # Gọi trực tiếp hàm async
         tasks.append(
-            asyncio.to_thread(
-                llm_seo_analyzer.generate_seo_outline,
-                state['content_brief'],
-                title,
-                meta_description,
+            llm_seo_analyzer.generate_seo_outline(
+                brief=state['content_brief'],
+                title=title,
+                meta_description=meta_description,
                 language=state.get('language')
             )
         )
@@ -148,12 +148,12 @@ async def generate_full_articles(state: GraphState) -> GraphState:
         if i < len(valid_ideas_for_articles):
             # --- BẢO VỆ CHỐNG LỖI KEYERROR ---
             title = valid_ideas_for_articles[i].get('title', 'Untitled')
+            # Gọi trực tiếp hàm async
             generation_tasks.append(
-                asyncio.to_thread(
-                    llm_seo_analyzer.generate_article_from_outline,
-                    state['content_brief'],
-                    title,
-                    outline,
+                llm_seo_analyzer.generate_article_from_outline(
+                    brief=state['content_brief'],
+                    title=title,
+                    outline=outline,
                     language=state.get('language')
                 )
             )
