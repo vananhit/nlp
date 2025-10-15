@@ -119,6 +119,7 @@ function addNewBioRow() {
  * Finds and processes the first pending row in the Bio_Input sheet.
  */
 function processFirstPendingBioRow() {
+  SpreadsheetApp.flush();
   const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.BIO_INPUT);
   if (!sheet) {
@@ -217,9 +218,10 @@ function writeBioOutputData_(inputId, result) {
 }
 
 /**
- * Generates survey questions for the Bio feature based on the current row.
+ * Generates survey questions for the Bio feature for the first pending row.
  */
 function generateBioSurveyQuestions() {
+  SpreadsheetApp.flush();
   const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.BIO_INPUT);
   if (!sheet) {
@@ -227,13 +229,23 @@ function generateBioSurveyQuestions() {
     return;
   }
 
-  const currentRow = sheet.getActiveCell().getRow();
-  if (currentRow < 2) {
-    ui.alert('Vui lòng chọn một dòng dữ liệu (từ dòng 2 trở đi) để tạo câu hỏi.');
+  const statusRange = sheet.getRange(2, BIO_INPUT_COLS.STATUS, sheet.getLastRow() - 1, 1);
+  const statusValues = statusRange.getValues();
+  let targetRow = -1;
+
+  for (let i = 0; i < statusValues.length; i++) {
+    if (statusValues[i][0] === STATUS.PENDING) {
+      targetRow = i + 2;
+      break;
+    }
+  }
+
+  if (targetRow === -1) {
+    ui.alert(`Không có yêu cầu nào đang ở trạng thái "${STATUS.PENDING}" để tạo câu hỏi.`);
     return;
   }
 
-  const rowData = sheet.getRange(currentRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rowData = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
   
   try {
     const requestData = {
@@ -252,14 +264,36 @@ function generateBioSurveyQuestions() {
     if (result && Array.isArray(result.questions)) {
       const questionsText = "Gợi ý câu hỏi để bạn cung cấp thông tin:\n\n" + result.questions.join('\n') + 
                             "\n\n--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Bối cảnh thực thể (Entity Context)'.";
-      ui.alert('Câu hỏi gợi ý cho Bio', questionsText, ui.ButtonSet.OK);
+      
+      // Use preformatted text to preserve formatting
+      const htmlOutput = HtmlService.createHtmlOutput('<pre>' + escapeHtml(questionsText) + '</pre>')
+          .setWidth(600)
+          .setHeight(400);
+      ui.showModalDialog(htmlOutput, 'Câu hỏi gợi ý cho Bio');
+
     } else {
       throw new Error("API không trả về danh sách câu hỏi hợp lệ.");
     }
 
   } catch (e) {
-    console.error(`Error generating bio survey for row ${currentRow}:`, e);
+    console.error(`Error generating bio survey for row ${targetRow}:`, e);
     SpreadsheetApp.getActiveSpreadsheet().toast('Đã xảy ra lỗi.', 'Lỗi', 5);
     ui.alert('Đã xảy ra lỗi', `Chi tiết: ${e.message}`, ui.ButtonSet.OK);
   }
 }
+
+/**
+ * Helper function to escape HTML characters for display in HtmlService.
+ * @param {string} text The text to escape.
+ * @return {string} The escaped text.
+ */
+function escapeHtml(text) {
+  if (text == null) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+

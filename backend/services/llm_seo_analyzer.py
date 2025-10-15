@@ -265,3 +265,90 @@ async def generate_article_from_outline(brief: str, title: str, outline: str, la
     except Exception as e:
         print(f"Error during article generation with LLM: {e}")
         raise e
+
+# --- Pydantic Models for Survey Generation ---
+class SurveyQuestionsResponse(BaseModel):
+    """A list of survey questions."""
+    questions: List[str] = Field(description="A list of insightful survey questions for SEO purposes.")
+
+async def generate_survey_questions(
+    keyword: str,
+    name: str,
+    website: str,
+    short_description: str,
+    language: str | None = "Vietnamese"
+) -> List[str]:
+    """
+    Generates a structured marketing brief questionnaire based on client info.
+    """
+    try:
+        api_key = await api_key_manager.get_next_key_async()
+
+        # 1. Initialize the model
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=api_key)
+
+        # 2. Create the prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                """
+                You are a professional marketing strategist working at a creative agency.
+                Your task is to design a comprehensive **Marketing Brief Questionnaire** 
+                in {language}. This questionnaire helps you understand a client's business, 
+                products, customers, competitors, brand status, and marketing goals 
+                before creating a marketing strategy.
+                
+                The survey should be organized into **clear sections** (like Product, Customer, Market, Brand, and Goals)
+                and each section should include practical, business-oriented questions.
+                The tone should be professional, structured, and easy to answer.
+                """
+            ),
+            (
+                "human",
+                """
+                Based on the initial information provided, please generate a structured 
+                marketing brief questionnaire (about 30–50 questions total), divided into 
+                5–6 main sections. Each section should include a heading and numbered questions.
+                
+                - **Company/Brand Name:** "{name}"
+                - **Primary Keyword/Service:** "{keyword}"
+                - **Website:** "{website}"
+                - **Brief Description:** "{short_description}"
+
+                The questions should help the agency understand:
+                - The company's products or services
+                - Target customer insights
+                - Market and competitors
+                - Pricing and distribution channels
+                - Brand and current marketing activities
+                - Marketing goals and expected budget
+
+                Format example:
+                I. [Section Title]
+                1. [Question 1]
+                2. [Question 2]
+                ...
+
+                Write the questions in {language}.
+                """
+            )
+        ])
+
+        # 3. Create the chain and invoke it
+        chain = prompt | llm
+        response = await chain.ainvoke({
+            "language": language,
+            "name": name,
+            "keyword": keyword,
+            "website": website,
+            "short_description": short_description
+        })
+
+        # 4. The output is a single string, so we split it into a list of questions/lines
+        # This maintains the structure (sections, numbered questions) for the frontend.
+        return response.content.split('\\n')
+
+    except Exception as e:
+        print(f"Error during structured survey question generation with LLM: {e}")
+        # Raise the exception to be handled by the API endpoint
+        raise e

@@ -17,10 +17,11 @@ function createSeoSuggestionTemplate() {
   // --- Create SEO_Input Sheet ---
   const inputSheet = ss.insertSheet(SHEET_NAMES.SEO_INPUT);
   const headers = [[
-    'ID', 'Từ khóa chính', 'Mục tiêu Marketing', 'Đối tượng mục tiêu', 
-    'Văn phong', 'Số lượng gợi ý', 'Các trường mong muốn', 'Ngôn ngữ', 'Loại bài viết', 'Trạng thái', 'Thông tin bổ sung'
+    'ID', 'Từ khóa chính', 'Tên Công ty/Thương hiệu', 'Website', 'Mô tả ngắn',
+    'Mục tiêu Marketing', 'Đối tượng mục tiêu', 'Văn phong', 'Số lượng gợi ý', 
+    'Các trường mong muốn', 'Ngôn ngữ', 'Loại bài viết', 'Trạng thái', 'Thông tin bổ sung'
   ]];
-  const headersRange = inputSheet.getRange('A1:K1');
+  const headersRange = inputSheet.getRange('A1:N1');
   
   headersRange.setValues(headers)
               .setFontWeight('bold')
@@ -29,6 +30,9 @@ function createSeoSuggestionTemplate() {
   
   inputSheet.setColumnWidth(SEO_INPUT_COLS.ID, 150);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.KEYWORD, 200);
+  inputSheet.setColumnWidth(SEO_INPUT_COLS.COMPANY_NAME, 200);
+  inputSheet.setColumnWidth(SEO_INPUT_COLS.WEBSITE, 200);
+  inputSheet.setColumnWidth(SEO_INPUT_COLS.SHORT_DESC, 300);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.GOAL, 200);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.AUDIENCE, 200);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.VOICE, 150);
@@ -40,7 +44,7 @@ function createSeoSuggestionTemplate() {
   inputSheet.setColumnWidth(SEO_INPUT_COLS.PRODUCT_INFO, 400);
 
 
-  inputSheet.getRange('A2:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  inputSheet.getRange('A2:N').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   inputSheet.getRange(2, SEO_INPUT_COLS.ID, inputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
   const statusRule = SpreadsheetApp.newDataValidation()
@@ -117,6 +121,7 @@ function addNewSeoSuggestionRow() {
  * Finds and processes the first pending row in the SEO_Input sheet.
  */
 function processFirstSeoSuggestionRow() {
+  SpreadsheetApp.flush(); 
   const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.SEO_INPUT);
   if (!sheet) {
@@ -220,9 +225,10 @@ function writeSeoOutputData_(inputId, keyword, marketingGoal, result) {
 }
 
 /**
- * Generates survey questions based on the current row's data and displays them to the user.
+ * Generates survey questions for the first pending row and displays them to the user.
  */
 function generateSurveyQuestions() {
+  SpreadsheetApp.flush();
   const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.SEO_INPUT);
   if (!sheet) {
@@ -230,27 +236,57 @@ function generateSurveyQuestions() {
     return;
   }
 
-  const currentRow = sheet.getActiveCell().getRow();
-  if (currentRow < 2) {
-    ui.alert('Vui lòng chọn một dòng dữ liệu (từ dòng 2 trở đi) để tạo câu hỏi.');
+  const statusRange = sheet.getRange(2, SEO_INPUT_COLS.STATUS, sheet.getLastRow() - 1, 1);
+  const statusValues = statusRange.getValues();
+  let targetRow = -1;
+
+  for (let i = 0; i < statusValues.length; i++) {
+    if (statusValues[i][0] === STATUS.PENDING) {
+      targetRow = i + 2;
+      break;
+    }
+  }
+
+  if (targetRow === -1) {
+    ui.alert(`Không có yêu cầu nào đang ở trạng thái "${STATUS.PENDING}" để tạo câu hỏi.`);
     return;
   }
 
-  const rowData = sheet.getRange(currentRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rowData = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  // --- Lấy dữ liệu từ các cột mới ---
   const keyword = rowData[SEO_INPUT_COLS.KEYWORD - 1];
-  const goal = rowData[SEO_INPUT_COLS.GOAL - 1];
-  const audience = rowData[SEO_INPUT_COLS.AUDIENCE - 1];
+  const companyName = rowData[SEO_INPUT_COLS.COMPANY_NAME - 1];
+  const website = rowData[SEO_INPUT_COLS.WEBSITE - 1];
+  const shortDesc = rowData[SEO_INPUT_COLS.SHORT_DESC - 1];
+  const language = rowData[SEO_INPUT_COLS.LANGUAGE - 1] || 'Vietnamese';
 
+  // --- Kiểm tra dữ liệu đầu vào ---
   if (!keyword || !keyword.trim()) {
-    ui.alert('Lỗi Dữ liệu', 'Vui lòng điền "Từ khóa chính" trước khi tạo câu hỏi.', ui.ButtonSet.OK);
+    ui.alert('Lỗi Dữ liệu', `Dòng ${targetRow}: Vui lòng điền "Từ khóa chính".`, ui.ButtonSet.OK);
+    return;
+  }
+  if (!companyName || !companyName.trim()) {
+    ui.alert('Lỗi Dữ liệu', `Dòng ${targetRow}: Vui lòng điền "Tên Công ty/Thương hiệu".`, ui.ButtonSet.OK);
+    return;
+  }
+  if (!website || !website.trim()) {
+    ui.alert('Lỗi Dữ liệu', `Dòng ${targetRow}: Vui lòng điền "Website".`, ui.ButtonSet.OK);
+    return;
+  }
+  if (!shortDesc || !shortDesc.trim()) {
+    ui.alert('Lỗi Dữ liệu', `Dòng ${targetRow}: Vui lòng điền "Mô tả ngắn".`, ui.ButtonSet.OK);
     return;
   }
 
   try {
+    // --- Chuẩn bị dữ liệu gửi đi ---
     const requestData = {
       keyword: keyword,
-      marketing_goal: goal,
-      target_audience: audience
+      name: companyName,
+      website: website,
+      short_description: shortDesc,
+      language: language
     };
 
     // Show a loading message
@@ -264,14 +300,36 @@ function generateSurveyQuestions() {
     if (result && Array.isArray(result.questions)) {
       const questionsText = "Gợi ý câu hỏi để bạn cung cấp thông tin:\n\n" + result.questions.join('\n') + 
                             "\n\n--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Thông tin bổ sung'.";
-      ui.alert('Câu hỏi gợi ý', questionsText, ui.ButtonSet.OK);
+      
+      // Sử dụng preformatted text để giữ nguyên định dạng
+      const htmlOutput = HtmlService.createHtmlOutput('<pre>' + escapeHtml(questionsText) + '</pre>')
+          .setWidth(600)
+          .setHeight(400);
+      ui.showModalDialog(htmlOutput, 'Câu hỏi gợi ý');
+
     } else {
       throw new Error("API không trả về danh sách câu hỏi hợp lệ.");
     }
 
   } catch (e) {
-    console.error(`Error generating survey for row ${currentRow}:`, e);
+    console.error(`Error generating survey for row ${targetRow}:`, e);
     SpreadsheetApp.getActiveSpreadsheet().toast('Đã xảy ra lỗi.', 'Lỗi', 5);
     ui.alert('Đã xảy ra lỗi', `Chi tiết: ${e.message}`, ui.ButtonSet.OK);
   }
 }
+
+/**
+ * Helper function to escape HTML characters for display in HtmlService.
+ * @param {string} text The text to escape.
+ * @return {string} The escaped text.
+ */
+function escapeHtml(text) {
+  if (text == null) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+

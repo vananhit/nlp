@@ -4,6 +4,11 @@ from backend.services.api_key_manager import api_key_manager
 import json
 import asyncio
 
+# --- Langchain Imports for Structured Output ---
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
+
 async def get_model():
     """
     Configures and returns a new instance of the GenerativeModel asynchronously.
@@ -175,3 +180,78 @@ async def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
         print(f"Error during LLM call for bio entities: {e}")
 
     return state
+
+# --- Pydantic Models for Bio Survey Generation ---
+class BioSurveyQuestionsResponse(BaseModel):
+    """A list of survey questions for generating a bio."""
+    questions: List[str] = Field(description="A list of insightful survey questions for bio generation.")
+
+async def generate_survey_questions(
+    keyword: str,
+    website: Optional[str],
+    name: Optional[str],
+    short_description: Optional[str],
+    language: str | None = "Vietnamese"
+) -> List[str]:
+    """
+    Generates a Brand Discovery Questionnaire to gather in-depth information for a compelling bio.
+    """
+    try:
+        api_key = await api_key_manager.get_next_key_async()
+
+        # 1. Initialize the model
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=api_key)
+
+        # 2. Create the new, improved prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                """
+                You are a professional brand strategist and copywriter. Your task is to create a **Brand Discovery Questionnaire** in {language}. 
+                This questionnaire is designed to extract the core essence, story, and unique value proposition of a business or individual to write a compelling, authentic, and SEO-friendly bio.
+                The questions should be organized into logical sections, be open-ended, and encourage detailed, story-driven responses.
+                """
+            ),
+            (
+                "human",
+                """
+                Based on the initial information, please generate a comprehensive Brand Discovery Questionnaire. The questionnaire should be divided into 4-5 sections with clear headings and numbered questions.
+
+                - **Subject/Brand Name:** "{name}"
+                - **Primary Service/Keyword:** "{keyword}"
+                - **Website:** "{website}"
+                - **Initial Description:** "{short_description}"
+
+                The questionnaire should explore the following areas:
+                1.  **Brand Story & Mission:** The "why" behind the brand.
+                2.  **Target Audience & Brand Voice:** Who they serve and how they sound.
+                3.  **Products/Services & Uniqueness:** What they offer and what makes them different.
+                4.  **Achievements & Vision:** Their successes and future goals.
+
+                Format the output clearly in {language}. For example:
+
+                **I. Câu chuyện & Sứ mệnh Thương hiệu**
+                1.  Câu chuyện đằng sau sự ra đời của [Tên Thương hiệu] là gì?
+                2.  Sứ mệnh cốt lõi mà bạn muốn thực hiện cho khách hàng của mình là gì?
+                ...
+                """
+            )
+        ])
+
+        # 3. Create and invoke the chain
+        chain = prompt | llm
+        response = await chain.ainvoke({
+            "language": language,
+            "name": name or "Your Brand",
+            "keyword": keyword,
+            "website": website or "N/A",
+            "short_description": short_description or "N/A"
+        })
+
+        # 4. The output is a single string; split it by newline to create a list for the frontend.
+        # This preserves the intended formatting (sections, numbers).
+        return response.content.split('\\n')
+
+    except Exception as e:
+        print(f"Error during structured bio survey question generation with LLM: {e}")
+        raise e

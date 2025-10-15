@@ -53,8 +53,10 @@ class SeoSuggestionResponse(BaseModel):
 
 class SeoSurveyRequest(BaseModel):
     keyword: str
-    marketing_goal: Optional[str] = None
-    target_audience: Optional[str] = None
+    name: str
+    website: str
+    short_description: str
+    language: Optional[str] = "Vietnamese"
 
 class SeoSurveyResponse(BaseModel):
     questions: List[str]

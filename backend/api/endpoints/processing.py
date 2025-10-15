@@ -250,8 +250,10 @@ async def generate_seo_survey(
         # Giả sử có một hàm như vậy trong llm_seo_analyzer
         questions = await llm_seo_analyzer.generate_survey_questions(
             keyword=request_body.keyword,
-            marketing_goal=request_body.marketing_goal,
-            target_audience=request_body.target_audience
+            name=request_body.name,
+            website=request_body.website,
+            short_description=request_body.short_description,
+            language=request_body.language
         )
         
         return SeoSurveyResponse(questions=questions)
