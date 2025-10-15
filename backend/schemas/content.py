@@ -29,10 +29,10 @@ class SeoSuggestionRequest(BaseModel):
     marketing_goal: Optional[str] = None
     target_audience: Optional[str] = None
     brand_voice: Optional[str] = None
-    custom_notes: Optional[str] = None
     language: Optional[str] = "Vietnamese"
     num_suggestions: int = 3
     output_fields: List[str] = ["title", "description", "h1", "sapo", "content"]
+    product_info: Optional[str] = None
 
 class CategoryScore(BaseModel):
     name: str
@@ -49,6 +49,27 @@ class SeoSuggestion(BaseModel):
 class SeoSuggestionResponse(BaseModel):
     suggestions: List[SeoSuggestion]
 
+# --- Schemas for SEO Survey Feature ---
+
+class SeoSurveyRequest(BaseModel):
+    keyword: str
+    marketing_goal: Optional[str] = None
+    target_audience: Optional[str] = None
+
+class SeoSurveyResponse(BaseModel):
+    questions: List[str]
+
+# --- Schemas for Bio Survey Feature ---
+
+class BioSurveyRequest(BaseModel):
+    keyword: str
+    website: Optional[str] = None
+    name: Optional[str] = None
+    short_description: Optional[str] = None
+
+class BioSurveyResponse(BaseModel):
+    questions: List[str]
+
 # --- Schemas for Bio Generation Feature ---
 
 class BioGenerationRequest(BaseModel):
@@ -63,6 +84,7 @@ class BioGenerationRequest(BaseModel):
     main_keyword: Optional[str] = None
     short_description: Optional[str] = None
     language: Optional[str] = "Vietnamese"
+    entity_context: Optional[str] = None # Tên mới: entity_context
 
 class BioGenerationResponse(BaseModel):
     username: str

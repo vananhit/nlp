@@ -16,10 +16,14 @@ from backend.schemas.content import (
     SeoSuggestionResponse,
     SeoSuggestion,
     BioGenerationRequest,
-    BioGenerationResponse
+    BioGenerationResponse,
+    SeoSurveyRequest,
+    SeoSurveyResponse,
+    BioSurveyRequest,
+    BioSurveyResponse
 )
 from backend.security import get_current_user
-from backend.services import gcp_nlp, llm_rewriter
+from backend.services import gcp_nlp, llm_rewriter, llm_seo_analyzer, context_enricher, llm_bio_generator
 from backend.core import seo_workflow, bio_workflow
 from langgraph.graph import StateGraph, END
 import pytz
@@ -153,6 +157,16 @@ async def generate_seo_suggestions(
     """
     # --- Ghi log sử dụng ---
     _log_usage(db, request, x_user_email, "Gợi ý SEO")
+
+    # --- Tiền xử lý Context với Agent ---
+    try:
+        processed_product_info = await context_enricher.enrich_context(request_body.product_info)
+    except HTTPException as e:
+        raise e # Re-throw exceptions related to file size limit
+    except Exception as e:
+        print(f"Error during context enrichment: {e}")
+        # Fail gracefully: use original info if enrichment fails
+        processed_product_info = request_body.product_info
     
     # --- 1. Xây dựng Graph Workflow ---
     workflow = StateGraph(seo_workflow.GraphState)
@@ -188,7 +202,7 @@ async def generate_seo_suggestions(
         "marketing_goal": request_body.marketing_goal,
         "target_audience": request_body.target_audience,
         "brand_voice": request_body.brand_voice,
-        "custom_notes": request_body.custom_notes,
+        "product_info": processed_product_info, # Sử dụng context đã qua xử lý
         # Các trường khác sẽ được điền bởi các node
         "top_articles": [],
         "analysis_results": [],
@@ -217,6 +231,65 @@ async def generate_seo_suggestions(
             detail=f"An error occurred in the SEO suggestion workflow: {e}"
         )
 
+# --- Endpoint mới cho việc tạo câu hỏi khảo sát ---
+@router.post("/generate-seo-survey", response_model=SeoSurveyResponse)
+async def generate_seo_survey(
+    request_body: SeoSurveyRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    x_user_email: str | None = Header(default=None, alias="X-User-Email")
+) -> SeoSurveyResponse:
+    """
+    Endpoint để tạo một bộ câu hỏi khảo sát SEO dựa trên thông tin ban đầu.
+    """
+    # --- Ghi log sử dụng ---
+    _log_usage(db, request, x_user_email, "Tạo khảo sát SEO")
+
+    try:
+        # Sử dụng một hàm từ service LLM để tạo câu hỏi
+        # Giả sử có một hàm như vậy trong llm_seo_analyzer
+        questions = await llm_seo_analyzer.generate_survey_questions(
+            keyword=request_body.keyword,
+            marketing_goal=request_body.marketing_goal,
+            target_audience=request_body.target_audience
+        )
+        
+        return SeoSurveyResponse(questions=questions)
+
+    except Exception as e:
+        print(f"Error during SEO survey generation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during the SEO survey generation: {e}"
+        )
+
+@router.post("/generate-bio-survey", response_model=BioSurveyResponse)
+async def generate_bio_survey(
+    request_body: BioSurveyRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    x_user_email: str | None = Header(default=None, alias="X-User-Email")
+) -> BioSurveyResponse:
+    """
+    Endpoint để tạo câu hỏi khảo sát cho việc tạo Bio.
+    """
+    _log_usage(db, request, x_user_email, "Tạo khảo sát Bio")
+    try:
+        # Giả sử có hàm generate_survey_questions trong llm_bio_generator
+        questions = await llm_bio_generator.generate_survey_questions(
+            keyword=request_body.keyword,
+            website=request_body.website,
+            name=request_body.name,
+            short_description=request_body.short_description
+        )
+        return BioSurveyResponse(questions=questions)
+    except Exception as e:
+        print(f"Error during Bio survey generation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during the Bio survey generation: {e}"
+        )
+
 @router.post("/generate-bio-entities", response_model=BioGenerationResponse)
 async def generate_bio_entities(
     request_body: BioGenerationRequest,
@@ -233,6 +306,16 @@ async def generate_bio_entities(
     """
     # --- Ghi log sử dụng ---
     _log_usage(db, request, x_user_email, "Tạo Bio")
+
+    # --- Tiền xử lý Context với Agent ---
+    try:
+        processed_entity_context = await context_enricher.enrich_context(request_body.entity_context)
+    except HTTPException as e:
+        raise e # Re-throw exceptions related to file size limit
+    except Exception as e:
+        print(f"Error during context enrichment: {e}")
+        # Fail gracefully: use original info if enrichment fails
+        processed_entity_context = request_body.entity_context
 
     # --- 1. Build Workflow Graph ---
     workflow = StateGraph(bio_workflow.BioGraphState)
@@ -253,6 +336,7 @@ async def generate_bio_entities(
 
     # --- 2. Prepare Initial State and Invoke Graph ---
     initial_state = request_body.dict()
+    initial_state['entity_context'] = processed_entity_context # Ghi đè bằng context đã xử lý
     
     # Ensure keys for populated fields exist
     initial_state.setdefault("hashtag", None)

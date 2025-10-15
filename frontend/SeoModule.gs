@@ -18,7 +18,7 @@ function createSeoSuggestionTemplate() {
   const inputSheet = ss.insertSheet(SHEET_NAMES.SEO_INPUT);
   const headers = [[
     'ID', 'Từ khóa chính', 'Mục tiêu Marketing', 'Đối tượng mục tiêu', 
-    'Văn phong', 'Ghi chú thêm', 'Số lượng gợi ý', 'Các trường mong muốn', 'Ngôn ngữ', 'Loại bài viết', 'Trạng thái'
+    'Văn phong', 'Số lượng gợi ý', 'Các trường mong muốn', 'Ngôn ngữ', 'Loại bài viết', 'Trạng thái', 'Thông tin bổ sung'
   ]];
   const headersRange = inputSheet.getRange('A1:K1');
   
@@ -32,12 +32,13 @@ function createSeoSuggestionTemplate() {
   inputSheet.setColumnWidth(SEO_INPUT_COLS.GOAL, 200);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.AUDIENCE, 200);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.VOICE, 150);
-  inputSheet.setColumnWidth(SEO_INPUT_COLS.NOTES, 300);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.NUM_SUGGESTIONS, 120);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.OUTPUT_FIELDS, 300);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.LANGUAGE, 120);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.ARTICLE_TYPE, 250);
   inputSheet.setColumnWidth(SEO_INPUT_COLS.STATUS, 120);
+  inputSheet.setColumnWidth(SEO_INPUT_COLS.PRODUCT_INFO, 400);
+
 
   inputSheet.getRange('A2:K').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   inputSheet.getRange(2, SEO_INPUT_COLS.ID, inputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
@@ -160,11 +161,11 @@ function processFirstSeoSuggestionRow() {
       marketing_goal: rowData[SEO_INPUT_COLS.GOAL - 1],
       target_audience: rowData[SEO_INPUT_COLS.AUDIENCE - 1],
       brand_voice: rowData[SEO_INPUT_COLS.VOICE - 1],
-      custom_notes: rowData[SEO_INPUT_COLS.NOTES - 1],
       num_suggestions: parseInt(rowData[SEO_INPUT_COLS.NUM_SUGGESTIONS - 1], 10) || 3,
       output_fields: outputFields.length > 0 ? outputFields : ["title", "description", "h1", "sapo", "content"],
       language: rowData[SEO_INPUT_COLS.LANGUAGE - 1] || 'Vietnamese',
-      article_type: rowData[SEO_INPUT_COLS.ARTICLE_TYPE - 1]
+      article_type: rowData[SEO_INPUT_COLS.ARTICLE_TYPE - 1],
+      product_info: rowData[SEO_INPUT_COLS.PRODUCT_INFO - 1]
     };
 
     const result = callApi_('/api/v1/generate-seo-suggestions', requestData);
@@ -215,5 +216,62 @@ function writeSeoOutputData_(inputId, keyword, marketingGoal, result) {
     });
   } else {
     console.error("Kết quả trả về không hợp lệ hoặc không chứa 'suggestions': ", result);
+  }
+}
+
+/**
+ * Generates survey questions based on the current row's data and displays them to the user.
+ */
+function generateSurveyQuestions() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.SEO_INPUT);
+  if (!sheet) {
+    ui.alert(`Không tìm thấy sheet "${SHEET_NAMES.SEO_INPUT}". Vui lòng tạo template trước.`);
+    return;
+  }
+
+  const currentRow = sheet.getActiveCell().getRow();
+  if (currentRow < 2) {
+    ui.alert('Vui lòng chọn một dòng dữ liệu (từ dòng 2 trở đi) để tạo câu hỏi.');
+    return;
+  }
+
+  const rowData = sheet.getRange(currentRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const keyword = rowData[SEO_INPUT_COLS.KEYWORD - 1];
+  const goal = rowData[SEO_INPUT_COLS.GOAL - 1];
+  const audience = rowData[SEO_INPUT_COLS.AUDIENCE - 1];
+
+  if (!keyword || !keyword.trim()) {
+    ui.alert('Lỗi Dữ liệu', 'Vui lòng điền "Từ khóa chính" trước khi tạo câu hỏi.', ui.ButtonSet.OK);
+    return;
+  }
+
+  try {
+    const requestData = {
+      keyword: keyword,
+      marketing_goal: goal,
+      target_audience: audience
+    };
+
+    // Show a loading message
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đang tạo câu hỏi, vui lòng chờ...', 'Thông báo', -1);
+
+    const result = callApi_('/api/v1/generate-seo-survey', requestData);
+    
+    // Remove the loading message
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đã tạo xong!', 'Thành công', 5);
+
+    if (result && Array.isArray(result.questions)) {
+      const questionsText = "Gợi ý câu hỏi để bạn cung cấp thông tin:\n\n" + result.questions.join('\n') + 
+                            "\n\n--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Thông tin bổ sung'.";
+      ui.alert('Câu hỏi gợi ý', questionsText, ui.ButtonSet.OK);
+    } else {
+      throw new Error("API không trả về danh sách câu hỏi hợp lệ.");
+    }
+
+  } catch (e) {
+    console.error(`Error generating survey for row ${currentRow}:`, e);
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đã xảy ra lỗi.', 'Lỗi', 5);
+    ui.alert('Đã xảy ra lỗi', `Chi tiết: ${e.message}`, ui.ButtonSet.OK);
   }
 }

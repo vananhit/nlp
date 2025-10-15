@@ -19,9 +19,9 @@ function createBioTemplate() {
   const headers = [[
     'ID', 'Keyword (Từ khóa)', 'Website', 'Name (Tên)', 'Username', 
     'Short Description (Mô tả ngắn)', 
-    'Address (Địa chỉ)', 'Hotline', 'Zipcode', 'Num Bio Entities (Số lượng Bio)', 'Ngôn ngữ', 'Trạng thái'
+    'Address (Địa chỉ)', 'Hotline', 'Zipcode', 'Num Bio Entities (Số lượng Bio)', 'Ngôn ngữ', 'Trạng thái', 'Bối cảnh thực thể (Entity Context)'
   ]];
-  const headersRange = inputSheet.getRange('A1:L1');
+  const headersRange = inputSheet.getRange('A1:M1');
   
   headersRange.setValues(headers)
               .setFontWeight('bold')
@@ -40,8 +40,9 @@ function createBioTemplate() {
   inputSheet.setColumnWidth(BIO_INPUT_COLS.NUM_ENTITIES, 120);
   inputSheet.setColumnWidth(BIO_INPUT_COLS.LANGUAGE, 120);
   inputSheet.setColumnWidth(BIO_INPUT_COLS.STATUS, 120);
+  inputSheet.setColumnWidth(BIO_INPUT_COLS.ENTITY_CONTEXT, 400);
 
-  inputSheet.getRange('A2:L').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  inputSheet.getRange('A2:M').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   inputSheet.getRange(2, BIO_INPUT_COLS.ID, inputSheet.getMaxRows() - 1, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
 
   const statusRule = SpreadsheetApp.newDataValidation()
@@ -169,7 +170,8 @@ function processFirstPendingBioRow() {
       hotline: String(rowData[BIO_INPUT_COLS.HOTLINE - 1] || ''),
       zipcode: String(rowData[BIO_INPUT_COLS.ZIPCODE - 1] || ''),
       num_bio_entities: parseInt(rowData[BIO_INPUT_COLS.NUM_ENTITIES - 1], 10) || 5,
-      language: rowData[BIO_INPUT_COLS.LANGUAGE - 1] || 'Vietnamese'
+      language: rowData[BIO_INPUT_COLS.LANGUAGE - 1] || 'Vietnamese',
+      entity_context: rowData[BIO_INPUT_COLS.ENTITY_CONTEXT - 1]
     };
 
     const result = callApi_('/api/v1/generate-bio-entities', requestData);
@@ -211,5 +213,53 @@ function writeBioOutputData_(inputId, result) {
     sheet.appendRow(row);
   } else {
     console.error("Kết quả trả về không hợp lệ hoặc không chứa 'bioEntities': ", result);
+  }
+}
+
+/**
+ * Generates survey questions for the Bio feature based on the current row.
+ */
+function generateBioSurveyQuestions() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.BIO_INPUT);
+  if (!sheet) {
+    ui.alert(`Không tìm thấy sheet "${SHEET_NAMES.BIO_INPUT}". Vui lòng tạo template trước.`);
+    return;
+  }
+
+  const currentRow = sheet.getActiveCell().getRow();
+  if (currentRow < 2) {
+    ui.alert('Vui lòng chọn một dòng dữ liệu (từ dòng 2 trở đi) để tạo câu hỏi.');
+    return;
+  }
+
+  const rowData = sheet.getRange(currentRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  try {
+    const requestData = {
+      keyword: rowData[BIO_INPUT_COLS.KEYWORD - 1],
+      website: rowData[BIO_INPUT_COLS.WEBSITE - 1],
+      name: rowData[BIO_INPUT_COLS.NAME - 1],
+      short_description: rowData[BIO_INPUT_COLS.SHORT_DESC - 1]
+    };
+
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đang tạo câu hỏi Bio, vui lòng chờ...', 'Thông báo', -1);
+
+    const result = callApi_('/api/v1/generate-bio-survey', requestData);
+    
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đã tạo xong!', 'Thành công', 5);
+
+    if (result && Array.isArray(result.questions)) {
+      const questionsText = "Gợi ý câu hỏi để bạn cung cấp thông tin:\n\n" + result.questions.join('\n') + 
+                            "\n\n--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Bối cảnh thực thể (Entity Context)'.";
+      ui.alert('Câu hỏi gợi ý cho Bio', questionsText, ui.ButtonSet.OK);
+    } else {
+      throw new Error("API không trả về danh sách câu hỏi hợp lệ.");
+    }
+
+  } catch (e) {
+    console.error(`Error generating bio survey for row ${currentRow}:`, e);
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đã xảy ra lỗi.', 'Lỗi', 5);
+    ui.alert('Đã xảy ra lỗi', `Chi tiết: ${e.message}`, ui.ButtonSet.OK);
   }
 }

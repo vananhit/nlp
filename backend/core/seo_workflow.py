@@ -14,7 +14,8 @@ class GraphState(TypedDict):
     marketing_goal: str | None
     target_audience: str | None
     brand_voice: str | None
-    custom_notes: str | None
+    custom_notes: str | None # Sẽ được thay thế bằng product_info
+    product_info: str | None # Trường mới để chứa thông tin sản phẩm
     language: str | None
     # --- Dữ liệu xử lý trong workflow ---
     top_articles: List[Dict]
@@ -75,7 +76,8 @@ async def synthesize_analysis(state: GraphState) -> GraphState:
         marketing_goal=state.get('marketing_goal'),
         target_audience=state.get('target_audience'),
         brand_voice=state.get('brand_voice'),
-        custom_notes=state.get('custom_notes'),
+        custom_notes=state.get('custom_notes'), # Giữ lại để tương thích, nhưng ưu tiên product_info
+        product_info=state.get('product_info'),
         language=state.get('language'),
         article_type=state.get('article_type')
     )
