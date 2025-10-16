@@ -277,16 +277,40 @@ function generateBioSurveyQuestions() {
             code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
             pre { background-color: #f4f4f4; padding: 10px; border-radius: 3px; white-space: pre-wrap; }
             blockquote { border-left: 3px solid #ccc; padding-left: 10px; color: #666; }
+            #copy-button {
+              margin-top: 15px;
+              padding: 10px 15px;
+              border: none;
+              background-color: #4CAF50;
+              color: white;
+              border-radius: 5px;
+              cursor: pointer;
+            }
+            #copy-button:hover {
+              background-color: #45a049;
+            }
           </style>
         </head>
         <body>
           <div id="content"></div>
+          <button id="copy-button">Copy nội dung</button>
           <p><em>--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Bối cảnh thực thể (Entity Context)'.</em></p>
           <script>
             const markdownContent = ${JSON.stringify(markdownContent)};
             const converter = new showdown.Converter({tables: true, strikethrough: true, tasklists: true});
             const html = converter.makeHtml(markdownContent);
-            document.getElementById('content').innerHTML = html;
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = html;
+
+            document.getElementById('copy-button').addEventListener('click', () => {
+              const textToCopy = contentDiv.innerText;
+              navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('Đã sao chép nội dung vào clipboard!');
+              }).catch(err => {
+                console.error('Không thể sao chép: ', err);
+                alert('Lỗi! Không thể sao chép nội dung.');
+              });
+            });
           </script>
         </body>
       </html>
@@ -295,7 +319,7 @@ function generateBioSurveyQuestions() {
       const htmlOutput = HtmlService.createHtmlOutput(htmlTemplate)
           .setWidth(800)
           .setHeight(600);
-      ui.showModalDialog(htmlOutput, 'Câu hỏi gợi ý cho Bio (Xem trước)');
+      ui.showModalDialog(htmlOutput, 'Câu hỏi khảo sát Bio');
 
     } else {
       throw new Error("API không trả về nội dung câu hỏi hợp lệ.");
