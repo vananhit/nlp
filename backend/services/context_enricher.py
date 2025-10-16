@@ -156,10 +156,11 @@ async def find_urls(state: EnrichmentState) -> EnrichmentState:
     state['found_urls'] = unique_urls
     return state
 
-async def url_processing_router(state: EnrichmentState) -> str:
-    """The 'brain' of the agent. Decides which URLs to process."""
+async def decide_which_urls_to_process(state: EnrichmentState) -> EnrichmentState:
+    """The 'brain' of the agent. Decides which URLs to process and updates the state."""
     if not state['found_urls']:
-        return "end"
+        state['urls_to_process'] = []
+        return state
 
     api_key = await api_key_manager.get_next_key_async()
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0, google_api_key=api_key)
@@ -192,8 +193,18 @@ async def url_processing_router(state: EnrichmentState) -> str:
             urls_to_process.append({"url": decision.url, "type": url_type})
             
     state['urls_to_process'] = urls_to_process
-    
-    return "process_urls" if urls_to_process else "aggregate"
+    return state
+
+async def url_processing_router(state: EnrichmentState) -> str:
+    """Routes based on whether there are URLs to process."""
+    if state.get('urls_to_process') and state['urls_to_process']:
+        return "process_urls"
+    else:
+        # If there are no found_urls to begin with, or none were selected for processing
+        if not state['found_urls']:
+            return "end"
+        else:
+            return "aggregate"
 
 async def process_urls(state: EnrichmentState) -> EnrichmentState:
     """Processes the URLs selected by the router using the appropriate tools."""
@@ -225,15 +236,23 @@ def aggregate_results(state: EnrichmentState) -> EnrichmentState:
 def get_enrichment_workflow():
     workflow = StateGraph(EnrichmentState)
     workflow.add_node("find_urls", find_urls)
+    workflow.add_node("decide_urls", decide_which_urls_to_process)
     workflow.add_node("process_urls", process_urls)
     workflow.add_node("aggregate", aggregate_results)
     
     workflow.set_entry_point("find_urls")
+    workflow.add_edge("find_urls", "decide_urls")
+    
     workflow.add_conditional_edges(
-        "find_urls",
+        "decide_urls",
         url_processing_router,
-        {"process_urls": "process_urls", "aggregate": "aggregate", "end": END}
+        {
+            "process_urls": "process_urls",
+            "aggregate": "aggregate",
+            "end": END
+        }
     )
+    
     workflow.add_edge("process_urls", "aggregate")
     workflow.add_edge("aggregate", END)
     
