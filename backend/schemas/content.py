@@ -59,7 +59,7 @@ class SeoSurveyRequest(BaseModel):
     language: Optional[str] = "Vietnamese"
 
 class SeoSurveyResponse(BaseModel):
-    questions: List[str]
+    questions: str
 
 # --- Schemas for Bio Survey Feature ---
 
@@ -70,7 +70,7 @@ class BioSurveyRequest(BaseModel):
     short_description: Optional[str] = None
 
 class BioSurveyResponse(BaseModel):
-    questions: List[str]
+    questions: str
 
 # --- Schemas for Bio Generation Feature ---
 

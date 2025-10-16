@@ -324,12 +324,17 @@ async def generate_survey_questions(
                 - Marketing goals and expected budget
 
                 Format example:
-                I. [Section Title]
+                **BẢNG CÂU HỎI BRIEF MARKETING - [Company/Brand Name]**
+
+                **I. [Section Title]**
                 1. [Question 1]
                 2. [Question 2]
                 ...
 
-                Write the questions in {language}.
+                **STRICT INSTRUCTIONS:**
+                - The entire output must be in {language}.
+                - **DO NOT** add any introductory sentences, greetings, or explanations.
+                - The response **MUST** begin directly with the main title `**BẢNG CÂU HỎI BRIEF MARKETING - {name}**`.
                 """
             )
         ])
@@ -344,9 +349,8 @@ async def generate_survey_questions(
             "short_description": short_description
         })
 
-        # 4. The output is a single string, so we split it into a list of questions/lines
-        # This maintains the structure (sections, numbered questions) for the frontend.
-        return response.content.split('\\n')
+        # 4. The output is a single string, which is what we want to return directly.
+        return response.content
 
     except Exception as e:
         print(f"Error during structured survey question generation with LLM: {e}")

@@ -181,10 +181,6 @@ async def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return state
 
-# --- Pydantic Models for Bio Survey Generation ---
-class BioSurveyQuestionsResponse(BaseModel):
-    """A list of survey questions for generating a bio."""
-    questions: List[str] = Field(description="A list of insightful survey questions for bio generation.")
 
 async def generate_survey_questions(
     keyword: str,
@@ -230,10 +226,17 @@ async def generate_survey_questions(
 
                 Format the output clearly in {language}. For example:
 
+                **BẢNG CÂU HỎI KHÁM PHÁ THƯƠNG HIỆU - [Subject/Brand Name]**
+
                 **I. Câu chuyện & Sứ mệnh Thương hiệu**
                 1.  Câu chuyện đằng sau sự ra đời của [Tên Thương hiệu] là gì?
                 2.  Sứ mệnh cốt lõi mà bạn muốn thực hiện cho khách hàng của mình là gì?
                 ...
+
+                **STRICT INSTRUCTIONS:**
+                - The entire output must be in {language}.
+                - **DO NOT** add any introductory sentences, greetings, or explanations.
+                - The response **MUST** begin directly with the main title `**BẢNG CÂU HỎI KHÁM PHÁ THƯƠNG HIỆU - {name}**`.
                 """
             )
         ])
@@ -248,9 +251,8 @@ async def generate_survey_questions(
             "short_description": short_description or "N/A"
         })
 
-        # 4. The output is a single string; split it by newline to create a list for the frontend.
-        # This preserves the intended formatting (sections, numbers).
-        return response.content.split('\\n')
+        # 4. The output is a single string, which is what we want to return directly.
+        return response.content
 
     except Exception as e:
         print(f"Error during structured bio survey question generation with LLM: {e}")

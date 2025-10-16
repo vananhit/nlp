@@ -297,18 +297,44 @@ function generateSurveyQuestions() {
     // Remove the loading message
     SpreadsheetApp.getActiveSpreadsheet().toast('Đã tạo xong!', 'Thành công', 5);
 
-    if (result && Array.isArray(result.questions)) {
-      const questionsText = "Gợi ý câu hỏi để bạn cung cấp thông tin:\n\n" + result.questions.join('\n') + 
-                            "\n\n--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Thông tin bổ sung'.";
-      
-      // Sử dụng preformatted text để giữ nguyên định dạng
-      const htmlOutput = HtmlService.createHtmlOutput('<pre>' + escapeHtml(questionsText) + '</pre>')
-          .setWidth(600)
-          .setHeight(400);
-      ui.showModalDialog(htmlOutput, 'Câu hỏi gợi ý');
+    if (result && typeof result.questions === 'string') {
+      const markdownContent = result.questions;
+
+      const htmlTemplate = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <base target="_top">
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 15px; }
+            h1, h2, h3 { border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+            ul, ol { padding-left: 20px; }
+            code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+            pre { background-color: #f4f4f4; padding: 10px; border-radius: 3px; white-space: pre-wrap; }
+            blockquote { border-left: 3px solid #ccc; padding-left: 10px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div id="content"></div>
+          <p><em>--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Thông tin bổ sung'.</em></p>
+          <script>
+            const markdownContent = ${JSON.stringify(markdownContent)};
+            const converter = new showdown.Converter({tables: true, strikethrough: true, tasklists: true});
+            const html = converter.makeHtml(markdownContent);
+            document.getElementById('content').innerHTML = html;
+          </script>
+        </body>
+      </html>
+    `;
+
+      const htmlOutput = HtmlService.createHtmlOutput(htmlTemplate)
+          .setWidth(800)
+          .setHeight(600);
+      ui.showModalDialog(htmlOutput, 'Câu hỏi gợi ý (Xem trước)');
 
     } else {
-      throw new Error("API không trả về danh sách câu hỏi hợp lệ.");
+      throw new Error("API không trả về nội dung câu hỏi hợp lệ.");
     }
 
   } catch (e) {
@@ -317,19 +343,3 @@ function generateSurveyQuestions() {
     ui.alert('Đã xảy ra lỗi', `Chi tiết: ${e.message}`, ui.ButtonSet.OK);
   }
 }
-
-/**
- * Helper function to escape HTML characters for display in HtmlService.
- * @param {string} text The text to escape.
- * @return {string} The escaped text.
- */
-function escapeHtml(text) {
-  if (text == null) return '';
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
