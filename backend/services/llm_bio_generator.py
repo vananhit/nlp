@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 import google.generativeai as genai
 from backend.services.api_key_manager import api_key_manager
+from backend.services.telegram_notifier import notify_exception
 import json
 import asyncio
 
@@ -89,7 +90,9 @@ async def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
                 state[key] = value
 
     except Exception as e:
-        print(f"Error during LLM call for basic info: {e}")
+        error_context = f"Lỗi LLM khi tạo basic info cho state: {state}"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
         # Fallback for critical fields if LLM fails
         if not state.get("name"): state["name"] = state.get("keyword", "Default Name")
         if not state.get("username"): state["username"] = "defaultuser"
@@ -127,7 +130,9 @@ async def generate_hashtags(state: Dict[str, Any]) -> Dict[str, Any]:
         response = await model.generate_content_async(prompt)
         state["hashtag"] = response.text.strip()
     except Exception as e:
-        print(f"Error during LLM call for hashtags: {e}")
+        error_context = f"Lỗi LLM khi tạo hashtags cho state: {state}"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
         state["hashtag"] = f"#{state.get('keyword', 'general').replace(' ', '')}"
 
     return state
@@ -178,7 +183,9 @@ async def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
         data = json.loads(cleaned_text)
         state["bioEntities"] = data.get("bioEntities", [])
     except Exception as e:
-        print(f"Error during LLM call for bio entities: {e}")
+        error_context = f"Lỗi LLM khi tạo bio entities cho state: {state}"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
 
     return state
 
@@ -256,5 +263,7 @@ async def generate_survey_questions(
         return response.content
 
     except Exception as e:
-        print(f"Error during structured bio survey question generation with LLM: {e}")
+        error_context = f"Lỗi LLM khi tạo survey questions cho keyword: '{keyword}'"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
         raise e

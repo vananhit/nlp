@@ -168,6 +168,8 @@ async def generate_seo_suggestions(
         print(f"Error during context enrichment: {e}")
         # Fail gracefully: use original info if enrichment fails
         processed_product_info = request_body.product_info
+        error_context = f"Error during context enrichment: generate_seo_suggestions = '{request_body.keyword}'"
+        await notify_exception(e, context=error_context)
     
     # --- 1. Xây dựng Graph Workflow ---
     workflow = StateGraph(seo_workflow.GraphState)
@@ -336,6 +338,8 @@ async def generate_bio_entities(
         print(f"Error during context enrichment: {e}")
         # Fail gracefully: use original info if enrichment fails
         processed_entity_context = request_body.entity_context
+        error_context = f"Error during context enrichment: generate_bio_entities = '{request_body.keyword}'"
+        await notify_exception(e, context=error_context)
 
     # --- 1. Build Workflow Graph ---
     workflow = StateGraph(bio_workflow.BioGraphState)
