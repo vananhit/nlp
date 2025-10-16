@@ -76,7 +76,6 @@ async def synthesize_analysis(state: GraphState) -> GraphState:
         marketing_goal=state.get('marketing_goal'),
         target_audience=state.get('target_audience'),
         brand_voice=state.get('brand_voice'),
-        custom_notes=state.get('custom_notes'), # Giữ lại để tương thích, nhưng ưu tiên product_info
         product_info=state.get('product_info'),
         language=state.get('language'),
         article_type=state.get('article_type')

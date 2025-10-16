@@ -65,6 +65,7 @@ async def synthesize_insights(
     target_audience: str | None = None,
     brand_voice: str | None = None,
     custom_notes: str | None = None,
+    product_info: str | None = None, # Thêm tham số mới
     language: str | None = "Vietnamese",
     article_type: str | None = None
 ) -> str:
@@ -88,8 +89,10 @@ async def synthesize_insights(
         custom_directives.append(f"- **Target Audience:** {target_audience}")
     if brand_voice:
         custom_directives.append(f"- **Brand Voice:** {brand_voice}")
-    if custom_notes:
-        custom_directives.append(f"- **Additional Notes:** {custom_notes}")
+    if custom_notes: # Giữ lại để tương thích ngược nếu cần
+        custom_directives.append(f"- **Additional Notes (Legacy):** {custom_notes}")
+    if product_info:
+        custom_directives.append(f"- **Key Product/Service Information:** {product_info}")
 
     custom_directives_str = "\n".join(custom_directives)
 

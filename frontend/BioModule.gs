@@ -294,7 +294,7 @@ function generateBioSurveyQuestions() {
         <body>
           <div id="content"></div>
           <button id="copy-button">Copy nội dung</button>
-          <p><em>--> Vui lòng trả lời các câu hỏi này và dán câu trả lời vào cột 'Bối cảnh thực thể (Entity Context)'.</em></p>
+          <p><em>--> Vui lòng hoàn thành phiếu khảo sát này và dán câu trả lời vào cột 'Bối cảnh thực thể (Entity Context)'.</em></p>
           <script>
             const markdownContent = ${JSON.stringify(markdownContent)};
             const converter = new showdown.Converter({tables: true, strikethrough: true, tasklists: true});
@@ -302,14 +302,38 @@ function generateBioSurveyQuestions() {
             const contentDiv = document.getElementById('content');
             contentDiv.innerHTML = html;
 
+            function selectAndCopy(elementId) {
+              const el = document.getElementById(elementId);
+              if (!el) {
+                console.warn("Không tìm thấy phần tử:", elementId);
+                alert("Lỗi: Không tìm thấy nội dung để sao chép.");
+                return;
+              }
+
+              const range = document.createRange();
+              range.selectNodeContents(el);
+
+              const selection = window.getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
+
+              try {
+                const successful = document.execCommand("copy");
+                if (successful) {
+                  alert("Đã sao chép nội dung!");
+                } else {
+                  alert("Lỗi! Không thể sao chép nội dung.");
+                }
+              } catch (err) {
+                console.error("Lỗi khi copy:", err);
+                alert("Đã xảy ra lỗi khi cố gắng sao chép.");
+              }
+
+              selection.removeAllRanges();
+            }
+
             document.getElementById('copy-button').addEventListener('click', () => {
-              const textToCopy = contentDiv.innerText;
-              navigator.clipboard.writeText(textToCopy).then(() => {
-                alert('Đã sao chép nội dung vào clipboard!');
-              }).catch(err => {
-                console.error('Không thể sao chép: ', err);
-                alert('Lỗi! Không thể sao chép nội dung.');
-              });
+              selectAndCopy('content');
             });
           </script>
         </body>
