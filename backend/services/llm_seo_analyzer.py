@@ -67,7 +67,8 @@ async def synthesize_insights(
     custom_notes: str | None = None,
     product_info: str | None = None, # Thêm tham số mới
     language: str | None = "Vietnamese",
-    article_type: str | None = None
+    article_type: str | None = None,
+    current_date: str | None = None # Thêm tham số ngày hiện tại
 ) -> str:
     """
     Tổng hợp kết quả phân tích từ nhiều đối thủ và ngữ cảnh tùy chỉnh để tạo ra một 'Content Brief'. (Async version)
@@ -81,6 +82,8 @@ async def synthesize_insights(
 
     # --- Xây dựng phần prompt tùy chỉnh một cách linh hoạt ---
     custom_directives = []
+    if current_date:
+        custom_directives.append(f"- **Current Date for Context:** {current_date}. All content, especially titles and headings, MUST reflect this current date. For example, if the year is 2025, content should use '2025', not '2024'.")
     if article_type:
         custom_directives.append(f"- **Required Article Type:** {article_type}. The content brief MUST be tailored to this specific format.")
     if marketing_goal:

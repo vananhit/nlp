@@ -191,6 +191,13 @@ async def generate_seo_suggestions(
     # Compile graph thành một đối tượng có thể thực thi
     app = workflow.compile()
 
+    # --- Lấy ngày giờ hiện tại ---
+    # Sử dụng múi giờ Việt Nam (Asia/Ho_Chi_Minh là alias chuẩn cho Asia/Saigon)
+    vietnam_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    current_time = datetime.now(vietnam_tz)
+    # Định dạng ngày tháng theo kiểu "ngày 16 tháng 10 năm 2025"
+    current_date_str = f"ngày {current_time.day} tháng {current_time.month} năm {current_time.year}"
+
     # --- 2. Chuẩn bị đầu vào và thực thi Graph ---
     initial_state = {
         "keyword": request_body.keyword,
@@ -203,6 +210,7 @@ async def generate_seo_suggestions(
         "target_audience": request_body.target_audience,
         "brand_voice": request_body.brand_voice,
         "product_info": processed_product_info, # Sử dụng context đã qua xử lý
+        "current_date": current_date_str, # Thêm ngày hiện tại vào state
         # Các trường khác sẽ được điền bởi các node
         "top_articles": [],
         "analysis_results": [],
@@ -336,9 +344,15 @@ async def generate_bio_entities(
     # Compile the graph
     app = workflow.compile()
 
+    # --- Lấy ngày giờ hiện tại ---
+    vietnam_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    current_time = datetime.now(vietnam_tz)
+    current_date_str = f"ngày {current_time.day} tháng {current_time.month} năm {current_time.year}"
+
     # --- 2. Prepare Initial State and Invoke Graph ---
     initial_state = request_body.dict()
     initial_state['entity_context'] = processed_entity_context # Ghi đè bằng context đã xử lý
+    initial_state['current_date'] = current_date_str # Thêm ngày hiện tại
     
     # Ensure keys for populated fields exist
     initial_state.setdefault("hashtag", None)

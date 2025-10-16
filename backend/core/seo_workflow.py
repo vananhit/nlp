@@ -17,6 +17,7 @@ class GraphState(TypedDict):
     custom_notes: str | None # Sẽ được thay thế bằng product_info
     product_info: str | None # Trường mới để chứa thông tin sản phẩm
     language: str | None
+    current_date: str | None # Trường mới cho ngày hiện tại
     # --- Dữ liệu xử lý trong workflow ---
     top_articles: List[Dict]
     analysis_results: List[Dict]
@@ -78,7 +79,8 @@ async def synthesize_analysis(state: GraphState) -> GraphState:
         brand_voice=state.get('brand_voice'),
         product_info=state.get('product_info'),
         language=state.get('language'),
-        article_type=state.get('article_type')
+        article_type=state.get('article_type'),
+        current_date=state.get('current_date') # Truyền ngày hiện tại
     )
     print(f"Synthesized Brief: {brief[:500]}...")  # In một phần của brief để kiểm tra
     state['content_brief'] = brief

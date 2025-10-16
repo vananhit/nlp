@@ -146,6 +146,7 @@ async def generate_bio_entities(state: Dict[str, Any]) -> Dict[str, Any]:
     prompt_parts = [
         "You are an expert content writer specializing in creating compelling business biographies optimized for SEO.",
         "Based on the following business profile, write a list of short, engaging paragraphs (bio entities) that include SEO-optimized backlinks.",
+        f"Current Date for Context: {state.get('current_date')}. Please ensure the content is timely and relevant to this date.",
         f"Main Keyword: {state.get('main_keyword') or state.get('keyword')}",
         f"Name: {state.get('name')}",
         f"Website: {state.get('website')}",

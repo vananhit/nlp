@@ -31,6 +31,7 @@ class BioGraphState(TypedDict):
     short_description: Optional[str]
     language: Optional[str]
     entity_context: Optional[str] # Thêm trường context
+    current_date: Optional[str] # Thêm trường ngày hiện tại
     
     # Fields to be populated by the workflow
     hashtag: str
