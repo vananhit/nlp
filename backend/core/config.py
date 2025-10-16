@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     WORKER_SECRET_ID: str 
     MAX_CONCURRENT_CRAWLS: int = 3
 
+    # Telegram Bot for notifications
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_CHAT_ID: str | None = None
+
     class Config:
         env_file = "backend/.env"
 

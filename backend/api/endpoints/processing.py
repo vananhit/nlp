@@ -24,6 +24,7 @@ from backend.schemas.content import (
 )
 from backend.security import get_current_user
 from backend.services import gcp_nlp, llm_rewriter, llm_seo_analyzer, context_enricher, llm_bio_generator
+from backend.services.telegram_notifier import notify_exception
 from backend.core import seo_workflow, bio_workflow
 from langgraph.graph import StateGraph, END
 import pytz
@@ -231,9 +232,12 @@ async def generate_seo_suggestions(
         return SeoSuggestionResponse(suggestions=suggestions_list)
 
     except Exception as e:
-        # Xử lý lỗi chung từ workflow
-        # Trong thực tế, nên có logging chi tiết hơn
-        print(f"Error during SEO suggestion workflow: {e}")
+        # Ghi log lỗi và gửi thông báo
+        error_context = f"Lỗi xảy ra trong quá trình tạo gợi ý SEO cho từ khóa: '{request_body.keyword}'"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
+        
+        # Trả về lỗi cho client
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred in the SEO suggestion workflow: {e}"
@@ -267,7 +271,10 @@ async def generate_seo_survey(
         return SeoSurveyResponse(questions=questions)
 
     except Exception as e:
-        print(f"Error during SEO survey generation: {e}")
+        error_context = f"Lỗi xảy ra trong quá trình tạo khảo sát SEO cho từ khóa: '{request_body.keyword}'"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during the SEO survey generation: {e}"
@@ -294,7 +301,10 @@ async def generate_bio_survey(
         )
         return BioSurveyResponse(questions=questions)
     except Exception as e:
-        print(f"Error during Bio survey generation: {e}")
+        error_context = f"Lỗi xảy ra trong quá trình tạo khảo sát Bio cho từ khóa: '{request_body.keyword}'"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during the Bio survey generation: {e}"
@@ -368,7 +378,10 @@ async def generate_bio_entities(
         return BioGenerationResponse(**final_state)
 
     except Exception as e:
-        print(f"Error during bio generation workflow: {e}")
+        error_context = f"Lỗi xảy ra trong quá trình tạo Bio Entities cho từ khóa: '{request_body.main_keyword}'"
+        print(f"{error_context}. Chi tiết: {e}")
+        await notify_exception(e, context=error_context)
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred in the bio generation workflow: {e}"

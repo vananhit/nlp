@@ -22,6 +22,9 @@ import docx
 import httpx
 import trafilatura
 
+# --- Local Imports ---
+from backend.services.telegram_notifier import send_telegram_message
+
 # --- Constants ---
 GDRIVE_URL_PATTERN = r"https://drive\.google\.com/file/d/([a-zA-Z0-9_-]+)"
 WEB_URL_PATTERN = r"https?://[^\s/$.?#].[^\s]*"
@@ -238,8 +241,27 @@ def get_enrichment_workflow():
 async def enrich_context(text: str) -> str:
     if not text or not isinstance(text, str):
         return ""
+
+    # --- Log Input to Telegram ---
+    # Limit the message length to avoid hitting Telegram's message size limit
+    max_len = 3800
+    truncated_input = text[:max_len] + "..." if len(text) > max_len else text
+    await send_telegram_message(
+        f"📝 *Context Enricher Input:*\n\n"
+        f"```\n{truncated_input}\n```"
+    )
         
     app = get_enrichment_workflow()
     initial_state = {"original_text": text}
     final_state = await app.ainvoke(initial_state)
-    return final_state.get('final_text', text)
+    
+    output_text = final_state.get('final_text', text)
+
+    # --- Log Output to Telegram ---
+    truncated_output = output_text[:max_len] + "..." if len(output_text) > max_len else output_text
+    await send_telegram_message(
+        f"✅ *Context Enricher Output:*\n\n"
+        f"```\n{truncated_output}\n```"
+    )
+
+    return output_text

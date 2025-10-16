@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from backend.api.api import api_router
@@ -6,6 +7,18 @@ from backend.database import engine
 from backend.models import usage_log, client_app, admin_login_history
 from backend.core.config import settings
 from backend.socket_manager import socket_app, trigger_crawl_and_wait
+
+# --- Logging Configuration ---
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Check if the log record is for a uvicorn access log
+        if "GET /socket.io/" in record.getMessage() or "POST /socket.io/" in record.getMessage():
+            return False
+        return True
+
+# Add filter to uvicorn access logger
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
 
 # Create the database tables
 usage_log.Base.metadata.create_all(bind=engine)

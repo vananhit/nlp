@@ -8,6 +8,7 @@ from backend.database import get_db
 from backend.models.usage_log import UsageLog
 from backend.models.admin_login_history import AdminLoginHistory
 from backend.services.api_key_manager import api_key_manager
+from backend.services.app_config_manager import app_config_manager # Import a Mới
 from backend.services.otp_manager import otp_manager
 from user_agents import parse
 from backend.services.gcp_sa_manager import gcp_sa_manager
@@ -131,8 +132,27 @@ async def manage_gemini_keys(request: Request, user: str = Depends(get_current_a
     # Add a masked version of the key for display
     for key_info in keys_data:
         key_info['masked_key'] = mask_api_key(key_info['key'])
+
+    current_rate_limit = app_config_manager.get_config("rate_limit_seconds", 0.1)
         
-    return templates.TemplateResponse("admin/manage_gemini.html", {"request": request, "keys": keys_data})
+    return templates.TemplateResponse("admin/manage_gemini.html", {
+        "request": request, 
+        "keys": keys_data,
+        "rate_limit_seconds": current_rate_limit
+    })
+
+@router.post("/admin/settings/update")
+async def update_settings(request: Request, rate_limit_seconds: float = Form(...), user: str = Depends(get_current_admin)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Lưu cấu hình mới
+    app_config_manager.update_config("rate_limit_seconds", rate_limit_seconds)
+    
+    # Tải lại cài đặt trong api_key_manager để áp dụng ngay
+    api_key_manager.reload_settings()
+    
+    return RedirectResponse(url="/api/admin/gemini-keys", status_code=303)
 
 @router.get("/admin/gcp-accounts", response_class=HTMLResponse)
 async def manage_gcp_accounts(request: Request, user: str = Depends(get_current_admin)):

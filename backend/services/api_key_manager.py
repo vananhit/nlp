@@ -4,18 +4,19 @@ import os
 import time
 import asyncio
 from collections import deque
+from backend.services.app_config_manager import app_config_manager
 
 # --- Rate-Limited API Key Manager (NEW) ---
 class RateLimitedApiKeyManager:
-    def __init__(self, keys_file_path=os.path.join("backend", "api_keys.json"), rate_limit_seconds=6):
+    def __init__(self, keys_file_path=os.path.join("backend", "api_keys.json")):
         """
         Khởi tạo manager với cơ chế điều tiết.
+        Giá trị rate_limit_seconds được tải từ AppConfigManager.
         :param keys_file_path: Đường dẫn đến file JSON chứa API keys.
-        :param rate_limit_seconds: Thời gian tối thiểu (giây) giữa các lần sử dụng của cùng một key.
-                                  (Mặc định là 6 giây cho 10 requests/phút).
         """
         self.keys_file_path = keys_file_path
-        self.rate_limit_seconds = rate_limit_seconds
+        # Tải cấu hình ban đầu
+        self.rate_limit_seconds = app_config_manager.get_config("rate_limit_seconds", 0.1)
         self.lock = asyncio.Lock()  # Sử dụng asyncio.Lock cho môi trường bất đồng bộ
 
         # Hàng đợi (deque) để lưu trữ (key, last_used_time)
@@ -130,6 +131,12 @@ class RateLimitedApiKeyManager:
         """Lưu danh sách key hiện tại vào file JSON."""
         with open(self.keys_file_path, "w") as f:
             json.dump({"keys": self.keys_config}, f, indent=2)
+
+    def reload_settings(self):
+        """Tải lại các cài đặt từ file cấu hình để áp dụng ngay lập tức."""
+        new_rate_limit = app_config_manager.get_config("rate_limit_seconds", 0.1)
+        print(f"Reloading settings: rate_limit_seconds changed from {self.rate_limit_seconds} to {new_rate_limit}")
+        self.rate_limit_seconds = new_rate_limit
 
 
 # --- API Key Manager (OLD - for reference, will be replaced) ---
