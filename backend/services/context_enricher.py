@@ -2,6 +2,7 @@ import os
 import io
 import random
 import re
+import asyncio
 from typing import List, Dict, Any, TypedDict, Optional
 
 # --- Core Imports ---
@@ -27,7 +28,7 @@ from backend.services.api_key_manager import api_key_manager
 from backend.services.telegram_notifier import send_telegram_message
 
 # --- Constants ---
-GDRIVE_URL_PATTERN = r"https://drive\.google\.com/file/d/([a-zA-Z0-9_-]+)"
+GDRIVE_URL_PATTERN = r"https://(?:drive\.google\.com/file/d/|docs\.google\.com/document/d/)([a-zA-Z0-9_-]+)"
 WEB_URL_PATTERN = r"https?://[^\s/$.?#].[^\s]*"
 MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 CREDENTIALS_DIR = "backend/credentials/service_accounts"
@@ -70,13 +71,15 @@ def gdrive_file_extractor(gdrive_url: str) -> str:
         
         match = re.search(GDRIVE_URL_PATTERN, gdrive_url)
         if not match:
-            return "Error: Invalid Google Drive URL format."
+            print(f"ERROR: Invalid Google Drive URL format for URL: {gdrive_url}")
+            return ""
         file_id = match.group(1)
 
         metadata = drive_service.files().get(fileId=file_id, fields='size, mimeType, name').execute()
         
         if int(metadata.get('size', 0)) > MAX_FILE_SIZE_BYTES:
-            return f"Error: File '{metadata['name']}' exceeds the 5MB size limit."
+            print(f"ERROR: File '{metadata['name']}' exceeds the 5MB size limit.")
+            return ""
 
         mime_type = metadata.get('mimeType')
         request = None
@@ -86,7 +89,8 @@ def gdrive_file_extractor(gdrive_url: str) -> str:
         elif mime_type == 'application/pdf' or mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
             request = drive_service.files().get_media(fileId=file_id)
         else:
-            return f"Error: Unsupported file type '{mime_type}' for file '{metadata['name']}'."
+            print(f"ERROR: Unsupported file type '{mime_type}' for file '{metadata['name']}'.")
+            return ""
 
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
@@ -107,10 +111,13 @@ def gdrive_file_extractor(gdrive_url: str) -> str:
 
     except HttpError as e:
         if e.resp.status == 404:
-            return "Error: Google Drive file not found or access denied. Please ensure the file is shared with the service account."
-        return f"Error: An API error occurred: {e}"
+            print(f"ERROR: Google Drive file not found or access denied for URL: {gdrive_url}. Ensure the file is shared.")
+        else:
+            print(f"ERROR: An API error occurred for URL {gdrive_url}: {e}")
+        return ""
     except Exception as e:
-        return f"Error: An unexpected error occurred while processing Google Drive file: {e}"
+        print(f"ERROR: An unexpected error occurred while processing Google Drive file {gdrive_url}: {e}")
+        return ""
 
 async def web_page_extractor(web_url: str) -> str:
     """
@@ -124,11 +131,16 @@ async def web_page_extractor(web_url: str) -> str:
         
         # trafilatura is synchronous, so we run it in a thread
         extracted_text = await asyncio.to_thread(trafilatura.extract, response.text)
-        return extracted_text or "Could not extract main content from the webpage."
+        if not extracted_text:
+            print(f"INFO: Could not extract main content from the webpage: {web_url}")
+            return ""
+        return extracted_text
     except httpx.HTTPStatusError as e:
-        return f"Error: Could not fetch webpage. Status code: {e.response.status_code}"
+        print(f"ERROR: Could not fetch webpage {web_url}. Status code: {e.response.status_code}")
+        return ""
     except Exception as e:
-        return f"Error: An unexpected error occurred while processing web page: {e}"
+        print(f"ERROR: An unexpected error occurred while processing web page {web_url}: {e}")
+        return ""
 
 # --- LangGraph Agent for Context Enrichment ---
 
@@ -189,7 +201,8 @@ async def decide_which_urls_to_process(state: EnrichmentState) -> EnrichmentStat
     urls_to_process = []
     for decision in response.decisions:
         if decision.should_process:
-            url_type = "gdrive" if "drive.google.com" in decision.url else "web"
+            is_gdrive = re.search(GDRIVE_URL_PATTERN, decision.url)
+            url_type = "gdrive" if is_gdrive else "web"
             urls_to_process.append({"url": decision.url, "type": url_type})
             
     state['urls_to_process'] = urls_to_process
