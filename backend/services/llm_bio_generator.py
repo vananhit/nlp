@@ -23,15 +23,20 @@ async def get_model():
         print(f"Error configuring Generative AI: {e}")
         return None
 
+# --- Pydantic Schema for Structured Output ---
+class BasicInfo(BaseModel):
+    """Pydantic model for basic entity information."""
+    name: str = Field(description="The full name of the business or entity.")
+    address: str = Field(description="The complete physical address.")
+    hotline: str = Field(description="The contact phone number or hotline.")
+    zipcode: str = Field(description="The postal code or zipcode for the address.")
+    username: str = Field(description="A single-word username, no spaces or special characters.")
+
 async def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Generates missing basic information using an LLM. (Async version)
+    Generates missing basic information using an LLM with structured output. (Async version)
     If address is provided, it also generates the corresponding zipcode.
     """
-    model = await get_model()
-    if not model:
-        raise RuntimeError("Generative AI model could not be configured.")
-
     required_fields = ["username", "name", "address", "hotline", "zipcode"]
     missing_fields = [field for field in required_fields if not state.get(field)]
 
@@ -55,39 +60,67 @@ async def generate_basic_info(state: Dict[str, Any]) -> Dict[str, Any]:
         else:
             return state
 
-
     language = state.get("language", "Vietnamese")
-    prompt_parts = [
-        "You are an expert data completion assistant.",
-        "Based on the following partial information, please generate the missing fields.",
-        f"Keyword: {state.get('keyword', 'N/A')}",
-        f"Website: {state.get('website', 'N/A')}",
-        f"Short Description: {state.get('short_description', 'N/A')}",
-        "Current Information:",
-        f"- Name: {state.get('name', 'Missing')}",
-        f"- Address: {state.get('address', 'Missing')}",
-        f"- Hotline: {state.get('hotline', 'Missing')}",
-        f"- Zipcode: {state.get('zipcode', 'Missing')}",
-        f"- Username: {state.get('username', 'Missing')}",
-        "\nInstructions:",
-        "1. Generate plausible information for all 'Missing' fields.",
-        "2. If the Address is provided but the Zipcode is missing, find the correct zipcode for that address.",
-        f"3. If the Address is missing, generate a plausible address in {language}.",
-        f"4. The hotline should be a phone number appropriate for {language}.",
-        "5. The username should be a single word, no spaces, no special characters, derived from the website or name.",
-        "6. Return the result as a JSON object with the keys: 'name', 'address', 'hotline', 'zipcode', 'username'."
-    ]
-
-    prompt = "\n".join(prompt_parts)
-
+    
     try:
-        response = await model.generate_content_async(prompt)
-        generated_data = json.loads(response.text.strip())
+        api_key = await api_key_manager.get_next_key_async()
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=api_key)
+        structured_llm = llm.with_structured_output(BasicInfo)
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", 
+             "You are an expert data completion assistant. Based on the provided partial information, "
+             "your task is to generate the missing fields. Return the result as a perfectly formatted JSON object "
+             "that adheres to the provided schema. Ensure all fields are populated."
+            ),
+            ("human", 
+             """
+             Please generate the missing information based on the following data.
+
+             **Context:**
+             - Language for generated content: {language}
+             - Keyword: {keyword}
+             - Website: {website}
+             - Short Description: {short_description}
+
+             **Current Information (with 'Missing' for fields to be generated):**
+             - Name: {name}
+             - Address: {address}
+             - Hotline: {hotline}
+             - Zipcode: {zipcode}
+             - Username: {username}
+
+             **Instructions:**
+             1. Generate plausible information for all fields marked as 'Missing'.
+             2. If the Address is provided but the Zipcode is 'Missing', find the correct zipcode for that address.
+             3. If the Address is 'Missing', generate a plausible address suitable for the specified language and context.
+             4. The hotline should be a valid phone number format appropriate for the language.
+             5. The username should be a single word, without spaces or special characters, derived logically from the website or name.
+             """
+            )
+        ])
+
+        chain = prompt | structured_llm
         
+        generated_data = await chain.ainvoke({
+            "language": language,
+            "keyword": state.get('keyword', 'N/A'),
+            "website": state.get('website', 'N/A'),
+            "short_description": state.get('short_description', 'N/A'),
+            "name": state.get('name') or "Missing",
+            "address": state.get('address') or "Missing",
+            "hotline": state.get('hotline') or "Missing",
+            "zipcode": state.get('zipcode') or "Missing",
+            "username": state.get('username') or "Missing",
+        })
+
         # Update state with generated data, only if the original was missing
-        for key, value in generated_data.items():
-            if not state.get(key):
-                state[key] = value
+        # Pydantic model ensures generated_data is an object with attributes
+        if not state.get("name"): state["name"] = generated_data.name
+        if not state.get("address"): state["address"] = generated_data.address
+        if not state.get("hotline"): state["hotline"] = generated_data.hotline
+        if not state.get("zipcode"): state["zipcode"] = generated_data.zipcode
+        if not state.get("username"): state["username"] = generated_data.username
 
     except Exception as e:
         error_context = f"Lỗi LLM khi tạo basic info cho state: {state}"

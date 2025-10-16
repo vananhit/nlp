@@ -23,6 +23,7 @@ import httpx
 import trafilatura
 
 # --- Local Imports ---
+from backend.services.api_key_manager import api_key_manager
 from backend.services.telegram_notifier import send_telegram_message
 
 # --- Constants ---
@@ -160,7 +161,8 @@ async def url_processing_router(state: EnrichmentState) -> str:
     if not state['found_urls']:
         return "end"
 
-    llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0)
+    api_key = await api_key_manager.get_next_key_async()
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0, google_api_key=api_key)
     structured_llm = llm.with_structured_output(UrlProcessingList)
     
     prompt = f"""You are an intelligent context analysis agent. Your task is to decide which URLs found in a user's text are worth extracting for additional context. The primary goal is to gather detailed information to deeply understand a product, service, or specific task mentioned in the text.
