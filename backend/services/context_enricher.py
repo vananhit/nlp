@@ -18,7 +18,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 # --- Text Extraction Imports ---
-import pypdf
+import fitz  # PyMuPDF
 import docx
 import httpx
 import trafilatura
@@ -103,8 +103,10 @@ def gdrive_file_extractor(gdrive_url: str) -> str:
         if mime_type == 'application/vnd.google-apps.document':
             return fh.read().decode('utf-8')
         elif mime_type == 'application/pdf':
-            reader = pypdf.PdfReader(fh)
-            return "\n".join(page.extract_text() for page in reader.pages)
+            doc = fitz.open(stream=fh.read(), filetype="pdf")
+            text = "".join(page.get_text() for page in doc)
+            doc.close()
+            return text
         elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
             doc = docx.Document(fh)
             return "\n".join(para.text for para in doc.paragraphs)
